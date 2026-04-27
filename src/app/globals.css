@@ -1,26 +1,1206 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Product UI — Hanken Grotesk (neutral grotesque, Linear/Arc-adjacent). PDF presets inherit. */
+  --font-sans: var(--font-hanken-grotesk), "Söhne", "SF Pro Text", system-ui, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
+  /* Editorial serif stack — used by *some* PDF presets, never the product UI. */
+  --font-serif: "Iowan Old Style", "Charter", "Palatino", Georgia, serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  /* Neutrals tinted toward the sky accent (hue 237) — Linear/Arc-cool, low chroma at extremes. */
+  --background: oklch(0.99 0.005 237);
+  --foreground: oklch(0.18 0.018 237);
+  --desk: oklch(0.965 0.008 237);
+  --paper: oklch(1 0 0); /* document stays pure paper — it's the hero */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.018 237);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.018 237);
+  --primary: oklch(0.2 0.018 237);
+  --primary-foreground: oklch(0.99 0.005 237);
+  --secondary: oklch(0.965 0.008 237);
+  --secondary-foreground: oklch(0.22 0.018 237);
+  --muted: oklch(0.965 0.008 237);
+  --muted-foreground: oklch(0.55 0.018 237);
+  --accent: oklch(0.94 0.01 237);
+  --accent-foreground: oklch(0.22 0.018 237);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.9 0.01 237);
+  --rule: oklch(0.92 0.008 237);
+  --input: oklch(0.9 0.01 237);
+  /* shadcn sky-500 — the only chromatic accent in the product UI. */
+  --ring: oklch(0.685 0.169 237.323);
+  --sky: oklch(0.685 0.169 237.323);
+  --sky-soft: oklch(0.96 0.022 237);
+  --chart-1: oklch(0.45 0.08 60);
+  --chart-2: oklch(0.45 0.13 245);
+  --chart-3: oklch(0.42 0.09 158);
+  --chart-4: oklch(0.47 0.12 30);
+  --chart-5: oklch(0.52 0.035 95);
+  --radius: 0.5rem;
+  --sidebar: oklch(0.972 0.006 237);
+  --sidebar-foreground: oklch(0.18 0.018 237);
+  --sidebar-primary: oklch(0.2 0.018 237);
+  --sidebar-primary-foreground: oklch(0.99 0.005 237);
+  --sidebar-accent: oklch(0.94 0.01 237);
+  --sidebar-accent-foreground: oklch(0.22 0.018 237);
+  --sidebar-border: oklch(0.9 0.01 237);
+  --sidebar-ring: oklch(0.685 0.169 237.323);
+
+  /* Motion — Emil's strong curves. Built-in easings are too weak. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.dark {
+  /* Dark neutrals tinted toward the same hue 237 — keeps the cool brand cohesion in dark mode. */
+  --background: oklch(0.155 0.012 237);
+  --foreground: oklch(0.985 0.003 237);
+  --desk: oklch(0.185 0.014 237);
+  --paper: oklch(0.22 0.012 237);
+  --card: oklch(0.21 0.012 237);
+  --card-foreground: oklch(0.985 0.003 237);
+  --popover: oklch(0.21 0.012 237);
+  --popover-foreground: oklch(0.985 0.003 237);
+  --primary: oklch(0.922 0.005 237);
+  --primary-foreground: oklch(0.21 0.012 237);
+  --secondary: oklch(0.275 0.014 237);
+  --secondary-foreground: oklch(0.985 0.003 237);
+  --muted: oklch(0.275 0.014 237);
+  --muted-foreground: oklch(0.71 0.018 237);
+  --accent: oklch(0.275 0.014 237);
+  --accent-foreground: oklch(0.985 0.003 237);
+  --destructive: oklch(0.704 0.191 22.216);
+  /* Borders stay alpha-on-bg — picks up whatever surface they sit on. */
+  --border: oklch(1 0 0 / 10%);
+  --rule: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.685 0.169 237.323);
+  --sky: oklch(0.685 0.169 237.323);
+  --sky-soft: oklch(0.3 0.06 237 / 30%);
+  --sidebar: oklch(0.21 0.012 237);
+  --sidebar-foreground: oklch(0.985 0.003 237);
+  --sidebar-primary: oklch(0.685 0.169 237.323);
+  --sidebar-primary-foreground: oklch(0.985 0.003 237);
+  --sidebar-accent: oklch(0.275 0.014 237);
+  --sidebar-accent-foreground: oklch(0.985 0.003 237);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.685 0.169 237.323);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--sky) 30%, transparent);
   }
 }
 
-body {
-  background: var(--background);
+@layer components {
+  /* ——————————————————————————————————————————————
+     Page stack — multi-page paper layout
+
+     Each `.paper` is exactly one page tall and shows a clipped slice
+     of the rendered content via translateY(-i * bodyHeight).
+  */
+  .page-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    width: 100%;
+  }
+
+  .measurer {
+    position: absolute;
+    visibility: hidden;
+    pointer-events: none;
+    width: min(100%, 760px);
+    padding-left: 72px;
+    padding-right: 72px;
+    box-sizing: border-box;
+  }
+
+  .paper {
+    --page-h: 1075px; /* A4 default */
+    position: relative;
+    width: min(100%, 760px);
+    height: var(--page-h);
+    background: var(--paper);
+    border-radius: 2px;
+    color: var(--pdf-ink);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow:
+      0 0 0 0.5px
+      color-mix(in oklch, var(--pdf-rule, oklch(0.86 0.008 237)) 60%, transparent),
+      0 1px 1px oklch(0 0 0 / 4%),
+      0 6px 16px oklch(0 0 0 / 5%),
+      0 24px 56px oklch(0 0 0 / 7%);
+    transition: height 280ms var(--ease-out);
+  }
+
+  .paper[data-size="Letter"] {
+    --page-h: 984px; /* 760px * (11 / 8.5) */
+  }
+
+  .paper[data-size="A4"] {
+    --page-h: 1075px; /* 760px * (297 / 210) */
+  }
+
+  .document-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 64px 72px;
+    box-sizing: border-box;
+    background: var(--paper);
+    min-height: 0;
+  }
+
+  .has-document-chrome-top .document-body {
+    padding-top: 36px;
+  }
+
+  .has-document-chrome-bottom .document-body {
+    padding-bottom: 36px;
+  }
+
+  .document-body-clip {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .document-content {
+    position: relative;
+    transform: translateY(calc(var(--page-offset, 0px) * -1));
+    /* Mask hides content past this page's break point so it doesn't bleed
+       into the next page (the next page renders the same content anyway). */
+    mask-image: linear-gradient(
+      to bottom,
+      black 0,
+      black var(--page-window, 100000px),
+      transparent var(--page-window, 100000px)
+    );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      black 0,
+      black var(--page-window, 100000px),
+      transparent var(--page-window, 100000px)
+    );
+    transition: transform 320ms var(--ease-out);
+  }
+
+  /* Header / footer — no rule line, refined hierarchy. */
+  .document-chrome {
+    position: relative;
+    z-index: 1;
+    background: var(--paper);
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    min-height: 32px;
+    padding: 16px 44px 0;
+    color: var(--pdf-muted);
+    font-family: var(--pdf-body);
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .document-chrome-bottom {
+    padding: 0 44px 16px;
+  }
+
+  .document-chrome > :first-child {
+    color: color-mix(in oklch, var(--pdf-ink) 70%, transparent);
+    font-weight: 500;
+  }
+
+  /* ——————————————————————————————————————————————
+     Markdown type — same tokens map to PDF output for fidelity.
+     Color tokens transition so preset switches cross-fade in pure CSS.
+  */
+  .md-preview {
+    --pdf-accent: oklch(0.45 0.08 60);
+    --pdf-accent-soft: oklch(0.96 0.014 65);
+    --pdf-ink: oklch(0.18 0.022 65);
+    --pdf-muted: oklch(0.46 0.025 65);
+    --pdf-rule: oklch(0.86 0.014 65);
+    --pdf-heading: var(--font-serif);
+    --pdf-body: var(--font-sans);
+    --pdf-mono: var(--font-mono);
+    --pdf-line: 1.7;
+    font-family: var(--pdf-body);
+    font-size: 14.5px;
+    line-height: var(--pdf-line);
+  }
+
+  /* Editorial — magazine-like serif heading, sans body, generous measure. */
+  .preset-editorial {
+    --pdf-accent: oklch(0.45 0.08 60);
+    --pdf-accent-soft: oklch(0.96 0.014 65);
+    --pdf-ink: oklch(0.18 0.022 65);
+    --pdf-muted: oklch(0.46 0.025 65);
+    --pdf-rule: oklch(0.86 0.014 65);
+    --pdf-heading: var(--font-serif);
+    --pdf-body: var(--font-sans);
+    --pdf-line: 1.7;
+  }
+
+  /* Technical — sans throughout, info-dense, blueprint accent. */
+  .preset-technical {
+    --pdf-accent: oklch(0.48 0.13 245);
+    --pdf-accent-soft: oklch(0.95 0.022 245);
+    --pdf-ink: oklch(0.16 0.018 250);
+    --pdf-muted: oklch(0.45 0.024 250);
+    --pdf-rule: oklch(0.84 0.018 250);
+    --pdf-heading: var(--font-sans);
+    --pdf-body: var(--font-sans);
+    --pdf-line: 1.55;
+  }
+
+  /* Business — sans throughout, dignified, deeper laurel. */
+  .preset-business {
+    --pdf-accent: oklch(0.4 0.09 158);
+    --pdf-accent-soft: oklch(0.95 0.018 158);
+    --pdf-ink: oklch(0.17 0.018 158);
+    --pdf-muted: oklch(0.45 0.022 158);
+    --pdf-rule: oklch(0.85 0.014 158);
+    --pdf-heading: var(--font-sans);
+    --pdf-body: var(--font-sans);
+    --pdf-line: 1.62;
+  }
+
+  /* Academic — full serif, journal cadence, indented paragraphs. */
+  .preset-academic {
+    --pdf-accent: oklch(0.46 0.12 30);
+    --pdf-accent-soft: oklch(0.96 0.018 30);
+    --pdf-ink: oklch(0.18 0.018 30);
+    --pdf-muted: oklch(0.42 0.02 30);
+    --pdf-rule: oklch(0.84 0.014 30);
+    --pdf-heading: var(--font-serif);
+    --pdf-body: var(--font-serif);
+    --pdf-line: 1.78;
+  }
+
+  /* Cross-fade preset tokens with property transitions — pure CSS. */
+  .md-preview,
+  .md-preview h1,
+  .md-preview h2,
+  .md-preview h3,
+  .md-preview h4,
+  .md-preview p,
+  .md-preview li,
+  .md-preview a,
+  .md-preview blockquote,
+  .md-preview code,
+  .md-preview th,
+  .md-preview td,
+  .md-preview hr,
+  .document-chrome,
+  .document-chrome > * {
+    transition:
+      color 240ms var(--ease-out),
+      border-color 240ms var(--ease-out),
+      background-color 240ms var(--ease-out);
+  }
+
+  /* ——————————————————————————————————————————————
+     Headings — shared base, then per-preset overrides.
+  */
+  .md-preview h1,
+  .md-preview h2,
+  .md-preview h3,
+  .md-preview h4 {
+    color: var(--pdf-ink);
+    font-family: var(--pdf-heading);
+    line-height: 1.16;
+  }
+
+  .md-preview h1 {
+    margin: 0 0 24px;
+    font-size: clamp(1.85rem, 3.4vw, 2.5rem);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+
+  .md-preview h2 {
+    margin: 44px 0 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--pdf-rule);
+    font-size: 1.32rem;
+    font-weight: 650;
+    letter-spacing: -0.005em;
+  }
+
+  .md-preview h2:first-child,
+  .md-preview h1 + h2,
+  .document-content > :first-child h2:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .md-preview h3 {
+    margin: 28px 0 8px;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .md-preview h4 {
+    margin: 20px 0 6px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--pdf-muted);
+  }
+
+  /* ——————————————————————————————————————————————
+     Paragraphs, lists, links — shared base.
+  */
+  .md-preview p,
+  .md-preview ul,
+  .md-preview ol,
+  .md-preview blockquote,
+  .md-preview table,
+  .md-preview pre {
+    margin: 0 0 14px;
+  }
+
+  .md-preview p,
+  .md-preview li {
+    color: var(--pdf-ink);
+  }
+
+  .md-preview ul,
+  .md-preview ol {
+    padding-left: 26px;
+  }
+
+  .md-preview ul {
+    list-style: disc;
+  }
+
+  .md-preview ul ul {
+    list-style: circle;
+  }
+
+  .md-preview ul ul ul {
+    list-style: square;
+  }
+
+  .md-preview ol {
+    list-style: decimal;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .md-preview ol ol {
+    list-style: lower-alpha;
+  }
+
+  .md-preview ol ol ol {
+    list-style: lower-roman;
+  }
+
+  .md-preview ::marker {
+    color: var(--pdf-muted);
+  }
+
+  .md-preview li {
+    padding-left: 4px;
+  }
+
+  .md-preview li + li {
+    margin-top: 5px;
+  }
+
+  .md-preview li > p {
+    margin: 0 0 8px;
+  }
+
+  .md-preview li > ul,
+  .md-preview li > ol {
+    margin: 6px 0 6px;
+  }
+
+  .md-preview a {
+    color: var(--pdf-accent);
+    text-decoration: none;
+    border-bottom: 1px solid color-mix(in oklch, var(--pdf-accent) 30%, transparent);
+  }
+
+  .md-preview hr {
+    height: 1px;
+    margin: 28px 0;
+    border: 0;
+    background: var(--pdf-rule);
+  }
+
+  .md-preview blockquote {
+    padding: 14px 20px;
+    border-left: 2px solid var(--pdf-accent);
+    background: color-mix(in oklch, var(--pdf-accent-soft) 60%, transparent);
+    color: var(--pdf-muted);
+    border-radius: 0 4px 4px 0;
+  }
+
+  .md-preview blockquote > :last-child {
+    margin-bottom: 0;
+  }
+
+  .md-preview code {
+    border-radius: 4px;
+    background: var(--pdf-accent-soft);
+    color: var(--pdf-ink);
+    font-family: var(--pdf-mono);
+    font-size: 0.86em;
+    padding: 0.12em 0.36em;
+  }
+
+  .md-preview pre {
+    overflow: auto;
+    border-radius: 6px;
+    background: oklch(0.18 0.018 250);
+    color: oklch(0.95 0.008 250);
+    padding: 14px 16px;
+  }
+
+  .md-preview pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    font-size: 0.82rem;
+    line-height: 1.62;
+  }
+
+  .md-preview table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+  }
+
+  .md-preview th {
+    color: var(--pdf-ink);
+    font-weight: 700;
+    text-align: left;
+  }
+
+  .md-preview th,
+  .md-preview td {
+    border-bottom: 1px solid var(--pdf-rule);
+    padding: 9px 12px 9px 0;
+    vertical-align: top;
+  }
+
+  .md-preview img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+  }
+
+  /* ——————————————————————————————————————————————
+     Per-preset polish
+  */
+
+  /* Editorial — refined publishing rhythm */
+  .preset-editorial h1 {
+    font-weight: 600;
+    margin-bottom: 28px;
+  }
+  .preset-editorial h2 {
+    margin-top: 48px;
+    padding-top: 18px;
+  }
+  .preset-editorial h3 {
+    font-style: italic;
+    font-weight: 600;
+  }
+  .preset-editorial ul {
+    list-style: none;
+    padding-left: 0;
+  }
+  .preset-editorial ul > li {
+    padding-left: 18px;
+    position: relative;
+  }
+  .preset-editorial ul > li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.78em;
+    width: 6px;
+    height: 1px;
+    background: var(--pdf-muted);
+  }
+  .preset-editorial ul ul > li::before {
+    width: 4px;
+  }
+  .preset-editorial blockquote {
+    background: transparent;
+    border-left: 2px solid var(--pdf-accent);
+    padding: 8px 0 8px 24px;
+    margin: 22px 0;
+    border-radius: 0;
+    font-style: italic;
+    color: var(--pdf-ink);
+  }
+  .preset-editorial table th {
+    text-transform: uppercase;
+    font-size: 0.78em;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    color: var(--pdf-muted);
+    border-bottom: 1px solid var(--pdf-ink);
+    padding-bottom: 8px;
+  }
+
+  /* Technical — documentation-grade, blueprint accent, info-dense */
+  .preset-technical h1 {
+    font-weight: 700;
+    letter-spacing: -0.022em;
+    font-size: clamp(1.7rem, 2.8vw, 2.05rem); /* doc-title scale, not display */
+    margin: 0 0 6px;
+  }
+  /* Lede after H1 acts as doc subtitle */
+  .preset-technical h1 + p {
+    color: var(--pdf-muted);
+    font-size: 0.96em;
+    padding-bottom: 18px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--pdf-rule);
+  }
+  .preset-technical h2 {
+    border-top: 0;
+    border-left: 2px solid var(--pdf-accent);
+    padding: 0 0 0 14px;
+    margin: 32px 0 10px;
+    font-size: 1.18rem;
+    font-weight: 700;
+    color: var(--pdf-ink);
+    letter-spacing: -0.005em;
+  }
+  .preset-technical h3 {
+    color: var(--pdf-accent);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin: 22px 0 6px;
+  }
+  /* Code blocks — language label as a tiny chrome bar */
+  .preset-technical pre {
+    background: oklch(0.16 0.02 248);
+    border: 0;
+    border-radius: 8px;
+    padding: 18px 18px 16px;
+    position: relative;
+    margin-top: 22px;
+  }
+  .preset-technical pre code[class*="language-"]::before,
+  .preset-technical pre[data-lang]::before {
+    content: attr(data-lang);
+    position: absolute;
+    top: -10px;
+    left: 14px;
+    background: var(--pdf-accent);
+    color: oklch(0.99 0 0);
+    font-family: var(--pdf-mono);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 3px;
+  }
+  .preset-technical code {
+    background: color-mix(in oklch, var(--pdf-accent) 14%, transparent);
+    color: var(--pdf-accent);
+    font-weight: 500;
+    border-radius: 3px;
+  }
+  .preset-technical pre code {
+    background: transparent;
+    color: oklch(0.95 0.008 250);
+    font-weight: 400;
+  }
+  /* Tables — info-dense, monospaced numbers, visible zebra */
+  .preset-technical table {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.86em;
+  }
+  .preset-technical th {
+    border-bottom: 2px solid var(--pdf-accent);
+    padding: 7px 12px 7px 0;
+    text-transform: uppercase;
+    font-size: 0.86em;
+    letter-spacing: 0.06em;
+    color: var(--pdf-muted);
+    font-weight: 700;
+  }
+  .preset-technical td {
+    padding: 7px 12px 7px 0;
+  }
+  .preset-technical tr:nth-child(even) td {
+    background: color-mix(in oklch, var(--pdf-accent) 6%, transparent);
+  }
+  .preset-technical hr {
+    background: var(--pdf-accent);
+    opacity: 0.5;
+    height: 1px;
+  }
+  /* Tighter lists for documentation density */
+  .preset-technical ul,
+  .preset-technical ol {
+    padding-left: 22px;
+  }
+  .preset-technical ul {
+    list-style: none;
+  }
+  .preset-technical ul > li {
+    position: relative;
+    padding-left: 0;
+  }
+  .preset-technical ul > li::before {
+    content: "›";
+    position: absolute;
+    left: -16px;
+    top: 0;
+    color: var(--pdf-accent);
+    font-weight: 700;
+  }
+  .preset-technical li + li {
+    margin-top: 4px;
+  }
+  /* Blockquote as a callout note */
+  .preset-technical blockquote {
+    background: color-mix(in oklch, var(--pdf-accent) 6%, transparent);
+    border-left: 2px solid var(--pdf-accent);
+    border-radius: 0 4px 4px 0;
+    padding: 12px 18px;
+    color: var(--pdf-ink);
+    font-size: 0.96em;
+  }
+
+  /* Business — proposal-grade, numbered sections, bordered grids, callouts */
+  .preset-business {
+    counter-reset: section;
+  }
+  .preset-business h1 {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    font-size: clamp(2rem, 3.8vw, 2.7rem);
+    margin: 0 0 8px;
+  }
+  /* Subtle baseline rule under H1 — finishes the title */
+  .preset-business h1 + p {
+    color: var(--pdf-muted);
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--pdf-rule);
+    margin-bottom: 32px;
+  }
+  .preset-business h2 {
+    counter-increment: section;
+    margin: 44px 0 14px;
+    padding: 0;
+    border-top: 0;
+    font-size: 1.32rem;
+    font-weight: 700;
+    letter-spacing: -0.012em;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  .preset-business h2::before {
+    content: counter(section, decimal-leading-zero);
+    flex: none;
+    color: var(--pdf-accent);
+    font-weight: 600;
+    font-size: 0.78em;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+  }
+  .preset-business h3 {
+    font-weight: 700;
+    color: var(--pdf-ink);
+    font-size: 1rem;
+    margin: 24px 0 6px;
+    padding-left: 14px;
+    position: relative;
+  }
+  .preset-business h3::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.42em;
+    width: 6px;
+    height: 6px;
+    background: var(--pdf-accent);
+    border-radius: 1px;
+  }
+  .preset-business ol {
+    padding-left: 28px;
+  }
+  .preset-business ol > li::marker {
+    color: var(--pdf-accent);
+    font-weight: 700;
+  }
+  .preset-business ul > li::marker {
+    color: var(--pdf-accent);
+  }
+  .preset-business blockquote {
+    background: color-mix(in oklch, var(--pdf-accent) 5%, transparent);
+    border-left: 3px solid var(--pdf-accent);
+    border-radius: 0 6px 6px 0;
+    color: var(--pdf-ink);
+    padding: 18px 24px;
+    margin: 22px 0;
+    font-weight: 500;
+  }
+  /* Full-grid tables — proposal report look */
+  .preset-business table {
+    border: 1px solid var(--pdf-rule);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .preset-business th {
+    background: color-mix(in oklch, var(--pdf-accent) 8%, transparent);
+    color: var(--pdf-ink);
+    padding: 11px 14px;
+    font-size: 0.82em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    border-bottom: 1px solid var(--pdf-rule);
+  }
+  .preset-business td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--pdf-rule);
+  }
+  .preset-business tr:last-child td {
+    border-bottom: 0;
+  }
+  .preset-business td + td,
+  .preset-business th + th {
+    border-left: 1px solid var(--pdf-rule);
+  }
+
+  /* Academic — journal cadence, justified, indented paragraphs */
+  .preset-academic h1 {
+    font-weight: 600;
+    text-align: center;
+    letter-spacing: 0;
+    margin-bottom: 32px;
+  }
+  .preset-academic h2 {
+    border-top: 0;
+    text-align: center;
+    font-style: italic;
+    font-weight: 600;
+    margin: 36px 0 14px;
+    padding-top: 0;
+    font-size: 1.18rem;
+  }
+  .preset-academic h3 {
+    font-size: 1.02rem;
+    font-weight: 700;
+    margin: 22px 0 6px;
+  }
+  .preset-academic p + p {
+    text-indent: 1.4em;
+    margin-top: 0;
+  }
+  .preset-academic blockquote {
+    border-left: 0;
+    border-top: 1px solid var(--pdf-rule);
+    border-bottom: 1px solid var(--pdf-rule);
+    padding: 18px 32px;
+    margin: 22px 0;
+    background: transparent;
+    border-radius: 0;
+    text-align: justify;
+    font-style: italic;
+  }
+  .preset-academic ul,
+  .preset-academic ol {
+    padding-left: 28px;
+  }
+  .preset-academic li + li {
+    margin-top: 3px;
+  }
+  .preset-academic hr {
+    height: 0;
+    border: 0;
+    margin: 32px auto;
+    width: 60px;
+    border-top: 1px solid var(--pdf-rule);
+    text-align: center;
+  }
+  .preset-academic table {
+    font-size: 0.92em;
+  }
+  .preset-academic table th {
+    border-top: 2px solid var(--pdf-ink);
+    border-bottom: 1px solid var(--pdf-ink);
+    padding: 8px 12px 8px 0;
+  }
+  .preset-academic table tr:last-child td {
+    border-bottom: 2px solid var(--pdf-ink);
+  }
+
+  /* ——————————————————————————————————————————————
+     Editor pane
+  */
+  .editor {
+    width: 100%;
+    min-height: 100%;
+    padding: 28px 32px 48px;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    resize: none;
+    color: var(--foreground);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.7;
+    letter-spacing: 0;
+    caret-color: var(--sky);
+    tab-size: 2;
+  }
+
+  .editor::placeholder {
+    color: color-mix(in oklch, var(--muted-foreground) 80%, transparent);
+  }
+
+  .editor:focus-visible {
+    outline: 0;
+    box-shadow: none;
+  }
+
+  .drop-hint {
+    pointer-events: none;
+    position: absolute;
+    inset: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed color-mix(in oklch, var(--sky) 60%, transparent);
+    border-radius: 10px;
+    background: color-mix(in oklch, var(--sky) 6%, transparent);
+    color: var(--foreground);
+    font-size: 13px;
+    letter-spacing: 0.01em;
+    opacity: 0;
+    transform: scale(0.98);
+    transition:
+      opacity 160ms var(--ease-out),
+      transform 160ms var(--ease-out);
+
+    @starting-style {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+  }
+
+  [data-dragging="true"] .drop-hint {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* ——————————————————————————————————————————————
+     Segmented preset control — the core design choice, made tangible.
+  */
+  .preset-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background: color-mix(in oklch, var(--foreground) 4%, transparent);
+    border: 0;
+    border-radius: 999px;
+    margin: 0;
+    min-width: 0;
+  }
+
+  .preset-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px 5px 10px;
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    color: var(--muted-foreground);
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    transition:
+      color 160ms var(--ease-out),
+      background-color 160ms var(--ease-out),
+      transform 140ms var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .preset-chip:hover:not([data-active="true"]) {
+      color: var(--foreground);
+    }
+  }
+
+  .preset-chip:active {
+    transform: scale(0.97);
+  }
+
+  .preset-chip[data-active="true"] {
+    color: var(--foreground);
+    background: var(--paper);
+    box-shadow:
+      0 0 0 0.5px color-mix(in oklch, var(--border) 70%, transparent),
+      0 1px 2px oklch(0 0 0 / 5%);
+  }
+
+  .preset-chip .dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: currentColor;
+    transition: transform 140ms var(--ease-out);
+  }
+
+  .preset-chip[data-active="true"] .dot {
+    transform: scale(1.05);
+  }
+
+  /* ——————————————————————————————————————————————
+     Page-size toggle
+  */
+  .size-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    background: color-mix(in oklch, var(--foreground) 4%, transparent);
+    border: 0;
+    border-radius: 8px;
+    margin: 0;
+    min-width: 0;
+  }
+
+  .size-toggle button {
+    padding: 3px 9px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition:
+      color 140ms var(--ease-out),
+      background-color 140ms var(--ease-out),
+      transform 120ms var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .size-toggle button:hover:not([data-active="true"]) {
+      color: var(--foreground);
+    }
+  }
+
+  .size-toggle button:active {
+    transform: scale(0.96);
+  }
+
+  .size-toggle button[data-active="true"] {
+    color: var(--foreground);
+    background: var(--paper);
+    box-shadow:
+      0 0 0 0.5px color-mix(in oklch, var(--border) 70%, transparent),
+      0 1px 2px oklch(0 0 0 / 4%);
+  }
+
+  /* ——————————————————————————————————————————————
+     Popover
+  */
+  .popover-content {
+    transform-origin: var(--transform-origin);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    border-radius: 12px;
+    box-shadow:
+      0 0 0 1px color-mix(in oklch, var(--border) 80%, transparent),
+      0 2px 4px oklch(0 0 0 / 4%),
+      0 12px 32px oklch(0 0 0 / 10%);
+    padding: 16px;
+    width: 320px;
+    outline: none;
+    transition:
+      opacity 160ms var(--ease-out),
+      transform 160ms var(--ease-out);
+  }
+
+  .popover-content[data-starting-style],
+  .popover-content[data-ending-style] {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  /* ——————————————————————————————————————————————
+     Tooltip — Linear/Vercel-style. Skip animation on adjacent triggers.
+  */
+  .tooltip-content {
+    transform-origin: var(--transform-origin);
+    background: oklch(0.18 0.018 237);
+    color: oklch(0.97 0.005 237);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.005em;
+    border-radius: 6px;
+    padding: 4px 8px;
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 14%),
+      0 4px 14px oklch(0 0 0 / 12%);
+    pointer-events: none;
+    transition:
+      opacity 140ms var(--ease-out),
+      transform 140ms var(--ease-out);
+  }
+
+  .tooltip-content[data-starting-style],
+  .tooltip-content[data-ending-style] {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  .tooltip-content[data-instant] {
+    transition-duration: 0ms;
+  }
+
+  /* Field rows */
+  .field-label {
+    font-size: 12.5px;
+    color: var(--muted-foreground);
+    letter-spacing: 0.005em;
+  }
+}
+
+[data-slot="button"] {
+  transition:
+    transform 140ms var(--ease-out),
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+[data-slot="button"]:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Brand mark — Hanken Grotesk, set as a logotype: heavier, tighter, slightly larger. */
+.brand {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.038em;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-feature-settings:
+    "ss01" on,
+    "cv11" on;
+}
+
+@media (max-width: 860px) {
+  .document-body {
+    padding: 40px 28px;
+  }
+
+  .has-document-chrome-top .document-body {
+    padding-top: 30px;
+  }
+
+  .has-document-chrome-bottom .document-body {
+    padding-bottom: 30px;
+  }
+
+  .document-chrome {
+    padding: 14px 22px 0;
+  }
+
+  .document-chrome-bottom {
+    padding: 0 22px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: standard reduced-motion override */
+    animation-duration: 0.001ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: standard reduced-motion override */
+    animation-iteration-count: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: standard reduced-motion override */
+    scroll-behavior: auto !important;
+    /* biome-ignore lint/complexity/noImportantStyles: standard reduced-motion override */
+    transition-duration: 0.001ms !important;
+  }
 }
