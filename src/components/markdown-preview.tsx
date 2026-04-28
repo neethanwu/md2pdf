@@ -104,6 +104,8 @@ export function MarkdownPreview({
   const renderFooter = showFooter && footerHasContent;
 
   // Page 1 renders unconditionally and serves as the measurement source.
+  const scalerRef = useRef<HTMLDivElement>(null);
+  const stackRef = useRef<HTMLDivElement>(null);
   const clipRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [pageOffsets, setPageOffsets] = useState<number[]>([0]);
@@ -130,6 +132,36 @@ export function MarkdownPreview({
     return () => observer.disconnect();
   }, [pageSize, preset, renderHeader, renderFooter]);
 
+  // Fit-to-width: scale the page-stack down so the 760px page fits the
+  // container at narrow widths. We never reflow content — the page renders at
+  // its true dimensions and the wrapper visually scales it. This keeps the
+  // mobile preview honest: same layout, same pagination, just zoomed.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deps trigger a re-measure when stack composition changes
+  useLayoutEffect(() => {
+    const scaler = scalerRef.current;
+    const stack = stackRef.current;
+    if (!scaler || !stack) return;
+
+    const PAGE_W = 760;
+
+    const apply = () => {
+      const available = scaler.clientWidth;
+      if (available <= 0) return;
+      const scale = Math.min(1, available / PAGE_W);
+      // Natural height of the stack (set by paper heights + gaps), unaffected
+      // by transform: scale because transforms don't influence layout.
+      const naturalH = stack.scrollHeight;
+      scaler.style.setProperty("--preview-scale", String(scale));
+      scaler.style.setProperty("--preview-stack-h", `${naturalH * scale}px`);
+    };
+
+    const observer = new ResizeObserver(apply);
+    observer.observe(scaler);
+    observer.observe(stack);
+    apply();
+    return () => observer.disconnect();
+  }, [pageOffsets.length, pageSize, renderHeader, renderFooter]);
+
   const pageCount = pageOffsets.length;
   const pages = pageOffsets.map((offset, index) => {
     const nextOffset = pageOffsets[index + 1];
@@ -153,67 +185,69 @@ export function MarkdownPreview({
   );
 
   return (
-    <div className="page-stack">
-      {pages.map((page) => {
-        const isFirst = page.index === 0;
-        return (
-          <article
-            className={cn(
-              "paper md-preview",
-              presetDefinition.previewClassName,
-              renderHeader && "has-document-chrome-top",
-              renderFooter && "has-document-chrome-bottom",
-            )}
-            data-size={pageSize}
-            key={page.id}
-          >
-            {renderHeader ? (
-              <header className="document-chrome document-chrome-top">
-                <span>{chromeTitle?.trim() || "Untitled document"}</span>
-                {showDate ? <span>{date}</span> : <span />}
-              </header>
-            ) : null}
-            <div className="document-body">
-              <div className="document-body-clip" ref={isFirst ? clipRef : undefined}>
-                <div
-                  className="document-content"
-                  data-switching={switching || undefined}
-                  ref={isFirst ? contentRef : undefined}
-                  style={
-                    {
-                      "--page-offset": `${page.offset}px`,
-                      ...(page.window != null
-                        ? { "--page-window": `${page.window}px` }
-                        : {}),
-                    } as React.CSSProperties
-                  }
-                >
-                  {article}
+    <div className="page-stack-scaler" ref={scalerRef}>
+      <div className="page-stack" ref={stackRef}>
+        {pages.map((page) => {
+          const isFirst = page.index === 0;
+          return (
+            <article
+              className={cn(
+                "paper md-preview",
+                presetDefinition.previewClassName,
+                renderHeader && "has-document-chrome-top",
+                renderFooter && "has-document-chrome-bottom",
+              )}
+              data-size={pageSize}
+              key={page.id}
+            >
+              {renderHeader ? (
+                <header className="document-chrome document-chrome-top">
+                  <span>{chromeTitle?.trim() || "Untitled document"}</span>
+                  {showDate ? <span>{date}</span> : <span />}
+                </header>
+              ) : null}
+              <div className="document-body">
+                <div className="document-body-clip" ref={isFirst ? clipRef : undefined}>
+                  <div
+                    className="document-content"
+                    data-switching={switching || undefined}
+                    ref={isFirst ? contentRef : undefined}
+                    style={
+                      {
+                        "--page-offset": `${page.offset}px`,
+                        ...(page.window != null
+                          ? { "--page-window": `${page.window}px` }
+                          : {}),
+                      } as React.CSSProperties
+                    }
+                  >
+                    {article}
+                  </div>
                 </div>
               </div>
-            </div>
-            {renderFooter ? (
-              <footer className="document-chrome document-chrome-bottom">
-                <span>{footerNote?.trim() ?? ""}</span>
-                {showPageNumbers ? (
-                  <span className="page-marker">
-                    <span className="page-marker-label">Page</span>
-                    <span className="page-marker-numbers">
-                      <span className="page-marker-current">{page.index + 1}</span>
-                      <span aria-hidden className="page-marker-of">
-                        /
+              {renderFooter ? (
+                <footer className="document-chrome document-chrome-bottom">
+                  <span>{footerNote?.trim() ?? ""}</span>
+                  {showPageNumbers ? (
+                    <span className="page-marker">
+                      <span className="page-marker-label">Page</span>
+                      <span className="page-marker-numbers">
+                        <span className="page-marker-current">{page.index + 1}</span>
+                        <span aria-hidden className="page-marker-of">
+                          /
+                        </span>
+                        <span className="page-marker-total">{pageCount}</span>
                       </span>
-                      <span className="page-marker-total">{pageCount}</span>
                     </span>
-                  </span>
-                ) : (
-                  <span />
-                )}
-              </footer>
-            ) : null}
-          </article>
-        );
-      })}
+                  ) : (
+                    <span />
+                  )}
+                </footer>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }

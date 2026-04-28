@@ -159,12 +159,28 @@
      Each `.paper` is exactly one page tall and shows a clipped slice
      of the rendered content via translateY(-i * bodyHeight).
   */
+  /* Outer scaler reserves the SCALED visual height (set by JS after
+     measuring the container) and clips the unscaled layout overflow that
+     transform: scale leaves behind. --preview-scale and --preview-stack-h
+     are set by JS based on the container width and total stack height. */
+  .page-stack-scaler {
+    width: 100%;
+    height: var(--preview-stack-h, auto);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow: hidden;
+  }
+
   .page-stack {
+    flex: none;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 22px;
-    width: 100%;
+    width: 760px;
+    transform: scale(var(--preview-scale, 1));
+    transform-origin: top center;
   }
 
   .measurer {
@@ -177,10 +193,15 @@
     box-sizing: border-box;
   }
 
+  /* Paper is rendered at TRUE paper dimensions — never responsive.
+     Narrow viewports use transform: scale on the wrapper (.page-stack)
+     so the page is visually fit-to-width while keeping its layout intact.
+     This matches how Google Docs / Notion / Pages handle mobile preview:
+     the document is the document; the viewport adapts via zoom, not reflow. */
   .paper {
     --page-h: 1075px; /* A4 default */
     position: relative;
-    width: min(100%, 760px);
+    width: 760px;
     height: var(--page-h);
     background: var(--paper);
     border-radius: 2px;
@@ -429,9 +450,12 @@
     line-height: 1.16;
   }
 
+  /* Fixed font sizes — NEVER use vw/clamp inside the paper. The paper renders
+     at true paper dimensions and must paginate identically across viewports
+     and exactly match the exported PDF. */
   .md-preview h1 {
     margin: 0 0 24px;
-    font-size: clamp(1.85rem, 3.4vw, 2.5rem);
+    font-size: 2.4rem;
     font-weight: 650;
     letter-spacing: -0.02em;
   }
@@ -678,7 +702,7 @@
   .preset-technical h1 {
     font-weight: 700;
     letter-spacing: -0.022em;
-    font-size: clamp(1.7rem, 2.8vw, 2.05rem); /* doc-title scale, not display */
+    font-size: 2rem; /* doc-title scale, not display */
     margin: 0 0 6px;
   }
   /* Lede after H1 acts as doc subtitle */
@@ -808,7 +832,7 @@
   .preset-business h1 {
     font-weight: 700;
     letter-spacing: -0.03em;
-    font-size: clamp(2rem, 3.8vw, 2.7rem);
+    font-size: 2.6rem;
     margin: 0 0 8px;
   }
   /* Subtle baseline rule under H1 — finishes the title */
@@ -1650,27 +1674,10 @@
     "cv11" on;
 }
 
-@media (max-width: 860px) {
-  .document-body {
-    padding: 40px 28px;
-  }
-
-  .has-document-chrome-top .document-body {
-    padding-top: 54px;
-  }
-
-  .has-document-chrome-bottom .document-body {
-    padding-bottom: 54px;
-  }
-
-  .document-chrome {
-    padding: 22px 28px 0;
-  }
-
-  .document-chrome-bottom {
-    padding: 0 28px 22px;
-  }
-}
+/* No viewport-dependent rules inside the paper. Paper layout is fixed at
+   desktop dimensions and visually scaled to fit the container via JS-driven
+   transform on the wrapper, so the preview's pagination and content layout
+   match the exported PDF and stay consistent across screen sizes. */
 
 @media (prefers-reduced-motion: reduce) {
   *,

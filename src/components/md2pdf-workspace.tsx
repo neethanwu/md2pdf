@@ -536,8 +536,8 @@ export function Md2PdfWorkspace() {
   return (
     <TooltipProvider>
       <main className="flex h-dvh flex-col bg-background text-foreground">
-        {/* ———————————————————— Top bar —————————————————————— */}
-        <header className="relative z-20 flex h-12 items-center justify-between gap-4 border-b border-[var(--rule)] bg-background/90 px-5 backdrop-blur-sm sm:px-7">
+        {/* ———————————————————— Top bar — sticky on every viewport. */}
+        <header className="relative z-20 flex h-12 shrink-0 items-center justify-between gap-4 border-b border-[var(--rule)] bg-background/90 px-5 backdrop-blur-sm sm:px-7">
           <div className="flex min-w-0 items-center gap-3">
             <span className="brand select-none">md2pdf</span>
             {showInferredTitle ? (
@@ -649,12 +649,15 @@ export function Md2PdfWorkspace() {
           </div>
         </header>
 
-        {/* ———————————————————— Workspace —————————————————————— */}
-        <div className="grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-[minmax(360px,0.9fr)_minmax(480px,1.1fr)] lg:grid-rows-1">
+        {/* ———————————————————— Workspace — fixed-viewport grid with
+            internal pane scrolling. Top bar stays sticky on every device.
+            Mobile: row 1 is the editor (50dvh), row 2 fills the rest and
+            scrolls the preview internally so the navbar never moves. */}
+        <div className="grid flex-1 min-h-0 grid-cols-1 grid-rows-[50dvh_minmax(0,1fr)] lg:grid-cols-[minmax(360px,0.9fr)_minmax(480px,1.1fr)] lg:grid-rows-1">
           {/* Editor */}
           <section
             aria-label="Markdown editor"
-            className="relative flex min-h-[50dvh] min-w-0 flex-col border-b border-[var(--rule)] lg:min-h-0 lg:border-r lg:border-b-0"
+            className="relative flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-[var(--rule)] lg:border-r lg:border-b-0"
             data-dragging={isDragging}
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
@@ -757,7 +760,8 @@ export function Md2PdfWorkspace() {
               </fieldset>
             </div>
 
-            {/* Paper */}
+            {/* Paper — internal scroll on every viewport so the navbar
+                stays sticky and only the preview pane scrolls. */}
             <div className="flex-1 min-h-0 overflow-auto">
               <div className="px-5 py-10 sm:px-10 sm:py-16">
                 <MarkdownPreview
