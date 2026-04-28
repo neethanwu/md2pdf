@@ -2,12 +2,22 @@
 
 import {
   ArrowDownToLineIcon,
+  FileTextIcon,
+  KeyboardIcon,
   Loader2Icon,
+  MoonIcon,
   SlidersHorizontalIcon,
+  SunIcon,
   UploadIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useTheme } from "next-themes";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import {
+  type Command,
+  CommandPalette,
+  ShortcutsOverlay,
+} from "@/components/command-palette";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +37,6 @@ import {
   presets,
   sampleMarkdown,
 } from "@/lib/document";
-import { cn } from "@/lib/utils";
 
 type ChromeState = {
   header: boolean;
@@ -41,11 +50,15 @@ type ChromeState = {
 const initialChrome: ChromeState = {
   header: true,
   footer: true,
-  title: "Field Notes",
+  title: "",
   date: true,
   pageNumbers: true,
   footerNote: "",
 };
+
+type RecentFile = { name: string; markdown: string; ts: number };
+const RECENTS_KEY = "md2pdf:recents";
+const RECENTS_MAX = 3;
 
 /** Pick a default page size based on the user's locale.
  *  Letter for North America (US/CA/MX), A4 everywhere else. */
@@ -65,17 +78,49 @@ function useIsMac() {
   return isMac;
 }
 
+function loadRecents(): RecentFile[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RECENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(0, RECENTS_MAX) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecents(recents: RecentFile[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      RECENTS_KEY,
+      JSON.stringify(recents.slice(0, RECENTS_MAX)),
+    );
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
 export function Md2PdfWorkspace() {
-  const [markdown, setMarkdown] = useState(sampleMarkdown);
+  const [markdown, setMarkdown] = useState("");
   const [preset, setPreset] = useState<PdfPreset>("editorial");
   const [pageSize, setPageSize] = useState<PageSize>("Letter");
-  const [filename, setFilename] = useState("field-notes");
+  const [filename, setFilename] = useState("md2pdf-export");
   const [chrome, setChrome] = useState<ChromeState>(initialChrome);
   const [isPending, startTransition] = useTransition();
   const [isDragging, setIsDragging] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [titleFocusRequest, setTitleFocusRequest] = useState(0);
+  const [pulseFidelity, setPulseFidelity] = useState(false);
+  const [justActivatedPreset, setJustActivatedPreset] = useState<PdfPreset | null>(null);
+  const [presetSwitching, setPresetSwitching] = useState(false);
+  const [recents, setRecents] = useState<RecentFile[]>([]);
   const isMac = useIsMac();
   const modKey = isMac ? "⌘" : "Ctrl";
+  const { resolvedTheme, setTheme } = useTheme();
 
   // Pick the right default page size for the user once we have access to navigator.
   // SSR-safe: useState initialised to "Letter", then we adjust to "A4" if locale calls for it.
@@ -84,6 +129,11 @@ export function Md2PdfWorkspace() {
       const detected = detectPageSize();
       return current === detected ? current : detected;
     });
+  }, []);
+
+  // Load recents from localStorage on mount.
+  useEffect(() => {
+    setRecents(loadRecents());
   }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,34 +145,51 @@ export function Md2PdfWorkspace() {
     () => markdown.trim().split(/\s+/).filter(Boolean).length,
     [markdown],
   );
+  const isEmpty = markdown.trim().length === 0;
+  const showInferredTitle = !isEmpty && inferredTitle !== "Untitled document";
 
-  function updateChrome(next: Partial<ChromeState>) {
+  const updateChrome = useCallback((next: Partial<ChromeState>) => {
     setChrome((current) => ({ ...current, ...next }));
-  }
+  }, []);
 
-  async function handleFile(file: File) {
-    if (!file.name.match(/\.(md|markdown|txt)$/i)) {
-      toast.error("Markdown files only", {
-        description: "Upload a .md, .markdown, or .txt file.",
-      });
-      return;
-    }
+  const recordRecent = useCallback((name: string, content: string) => {
+    setRecents((prev) => {
+      const next = [
+        { name, markdown: content, ts: Date.now() },
+        ...prev.filter((r) => r.name !== name),
+      ].slice(0, RECENTS_MAX);
+      saveRecents(next);
+      return next;
+    });
+  }, []);
 
-    if (file.size > 500_000) {
-      toast.error("File is too large", {
-        description: "Files up to 500 KB are supported.",
-      });
-      return;
-    }
+  const handleFile = useCallback(
+    async (file: File) => {
+      if (!file.name.match(/\.(md|markdown|txt)$/i)) {
+        toast.error("Markdown files only", {
+          description: "Upload a .md, .markdown, or .txt file.",
+        });
+        return;
+      }
 
-    const text = await file.text();
-    setMarkdown(text);
-    setFilename(file.name.replace(/\.(md|markdown|txt)$/i, ""));
-    setChrome((current) => ({ ...current, title: inferTitle(text) }));
-    toast.success("Markdown loaded", { description: file.name });
-  }
+      if (file.size > 500_000) {
+        toast.error("File too large", {
+          description: "Markdown files this size aren't supported (limit: 500 KB).",
+        });
+        return;
+      }
 
-  function exportPdf() {
+      const text = await file.text();
+      setMarkdown(text);
+      setFilename(file.name.replace(/\.(md|markdown|txt)$/i, ""));
+      setChrome((current) => ({ ...current, title: inferTitle(text) }));
+      recordRecent(file.name, text);
+      toast.success(`Loaded — ${file.name}`);
+    },
+    [recordRecent],
+  );
+
+  const exportPdf = useCallback(() => {
     if (!markdown.trim()) {
       toast.error("Nothing to export yet", {
         description: "Paste or drop Markdown to get started.",
@@ -172,6 +239,10 @@ export function Md2PdfWorkspace() {
           id: exportToast,
           description: `${activePreset.name} · ${pageSize}`,
         });
+
+        // Quiet sky pulse on the fidelity tag — closes the loop where the eye returns.
+        setPulseFidelity(true);
+        setTimeout(() => setPulseFidelity(false), 800);
       } catch (error) {
         toast.error("Export failed", {
           id: exportToast,
@@ -179,15 +250,28 @@ export function Md2PdfWorkspace() {
         });
       }
     });
-  }
+  }, [
+    activePreset.name,
+    chrome.date,
+    chrome.footer,
+    chrome.footerNote,
+    chrome.header,
+    chrome.pageNumbers,
+    chrome.title,
+    filename,
+    inferredTitle,
+    markdown,
+    pageSize,
+    preset,
+  ]);
 
-  function applySample() {
+  const applySample = useCallback(() => {
     setMarkdown(sampleMarkdown);
-    setChrome((c) => ({ ...c, title: inferTitle(sampleMarkdown) }));
-    setFilename("field-notes");
-  }
+    setChrome((c) => ({ ...c, title: "" }));
+    setFilename("welcome");
+  }, []);
 
-  function loadSample() {
+  const loadSample = useCallback(() => {
     const dirty = markdown.trim() !== "" && markdown !== sampleMarkdown;
     if (!dirty) {
       applySample();
@@ -197,18 +281,91 @@ export function Md2PdfWorkspace() {
       description: "Your current Markdown will be overwritten.",
       action: { label: "Replace", onClick: applySample },
     });
+  }, [markdown, applySample]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
+  }, [resolvedTheme, setTheme]);
+
+  // User-driven preset change. Triggers a one-shot chip glow and a brief
+  // document-content blur to mask reflow. No-op when the preset is unchanged.
+  const pickPreset = useCallback((next: PdfPreset) => {
+    setPreset((current) => {
+      if (current === next) return current;
+      setJustActivatedPreset(next);
+      setPresetSwitching(true);
+      return next;
+    });
+  }, []);
+
+  // Clear the one-shot pulse and blur after their animation windows.
+  useEffect(() => {
+    if (!justActivatedPreset) return;
+    const id = window.setTimeout(() => setJustActivatedPreset(null), 620);
+    return () => window.clearTimeout(id);
+  }, [justActivatedPreset]);
+
+  useEffect(() => {
+    if (!presetSwitching) return;
+    const id = window.setTimeout(() => setPresetSwitching(false), 240);
+    return () => window.clearTimeout(id);
+  }, [presetSwitching]);
+
+  function openTitleEdit() {
+    setSettingsOpen(true);
+    setTitleFocusRequest((n) => n + 1);
   }
+
+  const loadRecent = useCallback((recent: RecentFile) => {
+    setMarkdown(recent.markdown);
+    setFilename(recent.name.replace(/\.(md|markdown|txt)$/i, ""));
+    setChrome((current) => ({ ...current, title: inferTitle(recent.markdown) }));
+    toast.success(`Loaded — ${recent.name}`);
+  }, []);
 
   // Stable refs for the global keydown handler — avoids re-binding on every render.
   const exportRef = useRef(exportPdf);
   exportRef.current = exportPdf;
+  const loadSampleRef = useRef(loadSample);
+  loadSampleRef.current = loadSample;
+  const toggleThemeRef = useRef(toggleTheme);
+  toggleThemeRef.current = toggleTheme;
+  const pickPresetRef = useRef(pickPreset);
+  pickPresetRef.current = pickPreset;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const inEditable =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
       const isMod = e.metaKey || e.ctrlKey;
+
+      // ? opens shortcuts overlay (only when not editing text).
+      if (!isMod && !e.altKey && e.key === "?" && !inEditable) {
+        e.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
+
       if (!isMod || e.altKey) return;
       const key = e.key.toLowerCase();
 
+      // ⌘K opens the command palette.
+      if (key === "k" && !e.shiftKey) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+        return;
+      }
+      // ⌘D toggles dark mode.
+      if (key === "d" && !e.shiftKey) {
+        e.preventDefault();
+        toggleThemeRef.current();
+        return;
+      }
       if (key === "e" && !e.shiftKey) {
         e.preventDefault();
         exportRef.current();
@@ -227,7 +384,7 @@ export function Md2PdfWorkspace() {
       const idx = ["1", "2", "3", "4"].indexOf(key);
       if (idx >= 0 && presets[idx]) {
         e.preventDefault();
-        setPreset(presets[idx].id);
+        pickPresetRef.current(presets[idx].id);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -263,27 +420,149 @@ export function Md2PdfWorkspace() {
     if (file) void handleFile(file);
   }
 
+  // Build commands for the palette. Order matters — first match is the default-selected.
+  const commands: Command[] = useMemo(() => {
+    const presetCommands: Command[] = presets.map((p, i) => ({
+      id: `preset-${p.id}`,
+      label: `${p.name} · ${p.verb}`,
+      keywords: `${p.verb} ${p.summary} ${p.accent}`,
+      shortcut: [modKey, String(i + 1)],
+      group: "Presets",
+      action: () => pickPreset(p.id),
+    }));
+
+    const recentCommands: Command[] = recents.map((r) => ({
+      id: `recent-${r.name}`,
+      label: r.name,
+      keywords: "recent file",
+      group: "Recent",
+      icon: FileTextIcon,
+      action: () => loadRecent(r),
+    }));
+
+    return [
+      ...recentCommands,
+      {
+        id: "export",
+        label: "Export PDF",
+        keywords: "download save pdf",
+        shortcut: [modKey, "E"],
+        group: "Document",
+        icon: ArrowDownToLineIcon,
+        action: () => exportRef.current(),
+      },
+      {
+        id: "open",
+        label: "Open Markdown file…",
+        keywords: "upload file md",
+        shortcut: [modKey, "O"],
+        group: "Document",
+        icon: UploadIcon,
+        action: () => fileInputRef.current?.click(),
+      },
+      {
+        id: "sample",
+        label: "Load sample document",
+        keywords: "demo welcome",
+        group: "Document",
+        action: () => loadSampleRef.current(),
+      },
+      ...presetCommands,
+      {
+        id: "size-letter",
+        label: "Page size · Letter",
+        keywords: "us letter inches",
+        group: "View",
+        action: () => setPageSize("Letter"),
+      },
+      {
+        id: "size-a4",
+        label: "Page size · A4",
+        keywords: "metric european",
+        group: "View",
+        action: () => setPageSize("A4"),
+      },
+      {
+        id: "toggle-header",
+        label: chrome.header ? "Hide document header" : "Show document header",
+        group: "View",
+        action: () => updateChrome({ header: !chrome.header }),
+      },
+      {
+        id: "toggle-footer",
+        label: chrome.footer ? "Hide document footer" : "Show document footer",
+        group: "View",
+        action: () => updateChrome({ footer: !chrome.footer }),
+      },
+      {
+        id: "toggle-theme",
+        label: resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode",
+        keywords: "theme appearance",
+        shortcut: [modKey, "D"],
+        group: "View",
+        icon: resolvedTheme === "dark" ? SunIcon : MoonIcon,
+        action: () => toggleThemeRef.current(),
+      },
+      {
+        id: "settings",
+        label: "Document settings",
+        keywords: "options chrome header footer",
+        shortcut: [modKey, "/"],
+        group: "View",
+        icon: SlidersHorizontalIcon,
+        action: () => setSettingsOpen(true),
+      },
+      {
+        id: "shortcuts",
+        label: "Keyboard shortcuts",
+        keywords: "help hotkeys",
+        shortcut: ["?"],
+        group: "View",
+        icon: KeyboardIcon,
+        action: () => setShortcutsOpen(true),
+      },
+    ];
+  }, [
+    chrome.footer,
+    chrome.header,
+    modKey,
+    recents,
+    resolvedTheme,
+    updateChrome,
+    loadRecent,
+    pickPreset,
+  ]);
+
   return (
     <TooltipProvider>
       <main className="flex h-dvh flex-col bg-background text-foreground">
         {/* ———————————————————— Top bar —————————————————————— */}
-        <header className="relative z-20 flex h-14 items-center justify-between gap-4 border-b border-[var(--rule)] bg-background/90 px-5 backdrop-blur-sm sm:px-7">
+        <header className="relative z-20 flex h-12 items-center justify-between gap-4 border-b border-[var(--rule)] bg-background/90 px-5 backdrop-blur-sm sm:px-7">
           <div className="flex min-w-0 items-center gap-3">
             <span className="brand select-none">md2pdf</span>
-            <span aria-hidden="true" className="h-3.5 w-px bg-[var(--rule)]" />
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <span className="truncate text-xs text-muted-foreground">
-                    {inferredTitle}
-                  </span>
-                }
-              />
-              <TooltipContent>Document title · from first heading</TooltipContent>
-            </Tooltip>
+            {showInferredTitle ? (
+              <>
+                <span aria-hidden="true" className="h-3.5 w-px bg-[var(--rule)]" />
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        aria-label="Edit document title"
+                        className="title-chip max-w-[28ch] truncate text-xs"
+                        onClick={openTitleEdit}
+                        type="button"
+                      >
+                        {inferredTitle}
+                      </button>
+                    }
+                  />
+                  <TooltipContent>Edit title</TooltipContent>
+                </Tooltip>
+              </>
+            ) : null}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -298,12 +577,13 @@ export function Md2PdfWorkspace() {
                   </Button>
                 }
               />
-              <TooltipContent>Upload Markdown · {modKey}O</TooltipContent>
+              <TooltipContent>Open · {modKey}O</TooltipContent>
             </Tooltip>
 
             <SettingsPopover
               chrome={chrome}
               filename={filename}
+              focusTitleRequest={titleFocusRequest}
               inferredTitle={inferredTitle}
               modKey={modKey}
               onChromeChange={updateChrome}
@@ -334,17 +614,21 @@ export function Md2PdfWorkspace() {
                     onClick={exportPdf}
                     size="sm"
                     type="button"
+                    variant="accent"
                   >
-                    {isPending ? (
+                    <span
+                      className="icon-stack"
+                      data-icon="inline-start"
+                      data-pending={isPending}
+                    >
+                      <ArrowDownToLineIcon aria-hidden="true" data-role="default" />
                       <Loader2Icon
                         aria-hidden="true"
                         className="animate-spin"
-                        data-icon="inline-start"
+                        data-role="pending"
                       />
-                    ) : (
-                      <ArrowDownToLineIcon aria-hidden="true" data-icon="inline-start" />
-                    )}
-                    Export PDF
+                    </span>
+                    {isPending ? "Exporting…" : "Export PDF"}
                   </Button>
                 }
               />
@@ -382,25 +666,47 @@ export function Md2PdfWorkspace() {
                 aria-label="Markdown source"
                 className="editor"
                 onChange={(event) => setMarkdown(event.target.value)}
-                placeholder="Paste or drop Markdown here…"
+                placeholder="Start typing, or drop a .md file"
                 spellCheck={false}
                 value={markdown}
               />
+              {/* Empty-state hint sits behind the textarea while there's no content. */}
+              <div
+                aria-hidden="true"
+                className="editor-empty"
+                data-hidden={!isEmpty || isDragging}
+              >
+                <span className="editor-empty-icon">
+                  <FileTextIcon aria-hidden="true" className="size-5" />
+                </span>
+                <span className="editor-empty-prompt">
+                  Paste Markdown, drop a{" "}
+                  <code className="font-mono text-[12px]">.md</code> file, or{" "}
+                  <button onClick={loadSample} type="button">
+                    load the sample
+                  </button>
+                  .
+                </span>
+              </div>
               <div aria-hidden="true" className="drop-hint">
                 Drop your Markdown file
               </div>
             </div>
 
             {/* Stats rail */}
-            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--rule)] px-5 py-2.5 text-[11.5px] text-muted-foreground">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--rule)] px-5 py-2 text-[11.5px] text-muted-foreground sm:px-7">
               <span className="tabular-nums tracking-wide">
                 {wordCount.toLocaleString()} words
                 <span className="mx-1.5 opacity-40">·</span>
                 {markdown.length.toLocaleString()} chars
               </span>
               <button
-                className="text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground active:scale-[0.97]"
+                className="text-muted-foreground hover:text-foreground active:scale-[0.97]"
                 onClick={loadSample}
+                style={{
+                  transition:
+                    "color 160ms var(--ease-out), transform 140ms var(--ease-out)",
+                }}
                 type="button"
               >
                 Load sample
@@ -414,7 +720,7 @@ export function Md2PdfWorkspace() {
             className="flex min-w-0 flex-col bg-[var(--desk)]"
           >
             {/* Preset row */}
-            <div className="flex shrink-0 items-center gap-3 border-b border-[var(--rule)] bg-background/70 px-5 py-3 backdrop-blur-sm sm:px-6">
+            <div className="flex shrink-0 items-center gap-3 border-b border-[var(--rule)] bg-background/70 px-5 py-3 backdrop-blur-sm sm:px-7">
               <fieldset className="preset-row">
                 <legend className="sr-only">Preset</legend>
                 {presets.map((p) => (
@@ -426,7 +732,8 @@ export function Md2PdfWorkspace() {
                           aria-pressed={preset === p.id}
                           className="preset-chip"
                           data-active={preset === p.id}
-                          onClick={() => setPreset(p.id)}
+                          data-just-activated={justActivatedPreset === p.id}
+                          onClick={() => pickPreset(p.id)}
                           type="button"
                         >
                           <span
@@ -438,7 +745,13 @@ export function Md2PdfWorkspace() {
                         </button>
                       }
                     />
-                    <TooltipContent>{p.summary}</TooltipContent>
+                    <TooltipContent>
+                      <span className="tooltip-verb">{p.verb}</span>
+                      <span className="tooltip-sep" aria-hidden="true">
+                        {" · "}
+                      </span>
+                      <span className="tooltip-summary">{p.summary}</span>
+                    </TooltipContent>
                   </Tooltip>
                 ))}
               </fieldset>
@@ -446,7 +759,7 @@ export function Md2PdfWorkspace() {
 
             {/* Paper */}
             <div className="flex-1 min-h-0 overflow-auto">
-              <div className="px-5 py-8 sm:px-10 sm:py-12">
+              <div className="px-5 py-10 sm:px-10 sm:py-16">
                 <MarkdownPreview
                   chromeTitle={chrome.title || inferredTitle}
                   footerNote={chrome.footerNote}
@@ -457,17 +770,35 @@ export function Md2PdfWorkspace() {
                   showFooter={chrome.footer}
                   showHeader={chrome.header}
                   showPageNumbers={chrome.pageNumbers}
+                  switching={presetSwitching}
                 />
               </div>
             </div>
 
             {/* Preview-foot meta */}
-            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--rule)] bg-background/70 px-5 py-2.5 text-[11.5px] text-muted-foreground sm:px-6">
-              <span className="truncate">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--rule)] bg-background/70 px-5 py-2 text-[11.5px] text-muted-foreground sm:px-7">
+              <span className="min-w-0 flex-1 truncate">
                 <span className="text-foreground/85">{activePreset.name}</span>
                 <span className="mx-1.5 opacity-40">·</span>
                 <span className="truncate">{activePreset.summary}</span>
               </span>
+
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span className="fidelity-tag inline-flex shrink-0">
+                      <span
+                        aria-hidden
+                        className="fidelity-tag-dot"
+                        data-pulse={pulseFidelity}
+                      />
+                      <span className="hidden sm:inline">Matches PDF</span>
+                    </span>
+                  }
+                />
+                <TooltipContent>Frame-perfect — no surprises on export.</TooltipContent>
+              </Tooltip>
+
               <span className="hidden shrink-0 tabular-nums sm:inline">
                 {pageSize}
                 <span className="mx-1.5 opacity-40">·</span>
@@ -477,6 +808,17 @@ export function Md2PdfWorkspace() {
           </section>
         </div>
       </main>
+
+      <CommandPalette
+        commands={commands}
+        onOpenChange={setPaletteOpen}
+        open={paletteOpen}
+      />
+      <ShortcutsOverlay
+        modKey={modKey}
+        onOpenChange={setShortcutsOpen}
+        open={shortcutsOpen}
+      />
     </TooltipProvider>
   );
 }
@@ -484,6 +826,7 @@ export function Md2PdfWorkspace() {
 type SettingsPopoverProps = {
   chrome: ChromeState;
   filename: string;
+  focusTitleRequest: number;
   inferredTitle: string;
   modKey: string;
   open: boolean;
@@ -498,6 +841,7 @@ type SettingsPopoverProps = {
 function SettingsPopover({
   chrome,
   filename,
+  focusTitleRequest,
   inferredTitle,
   modKey,
   open,
@@ -515,6 +859,17 @@ function SettingsPopover({
     chrome.pageNumbers &&
     chrome.footerNote === "";
 
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // When the parent asks us to focus the title field, do so on the next paint
+  // (after the popover has rendered).
+  useEffect(() => {
+    if (focusTitleRequest > 0 && open) {
+      const id = requestAnimationFrame(() => titleInputRef.current?.focus());
+      return () => cancelAnimationFrame(id);
+    }
+  }, [focusTitleRequest, open]);
+
   return (
     <Popover onOpenChange={onOpenChange} open={open}>
       <Tooltip>
@@ -523,32 +878,37 @@ function SettingsPopover({
             <PopoverTrigger
               aria-label="Document settings"
               render={
-                <Button size="icon-sm" type="button" variant="ghost">
+                <Button
+                  className="settings-trigger"
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
                   <SlidersHorizontalIcon aria-hidden="true" />
                 </Button>
               }
             />
           }
         />
-        <TooltipContent>Document settings · {modKey}/</TooltipContent>
+        <TooltipContent>Settings · {modKey}/</TooltipContent>
       </Tooltip>
-      <PopoverContent align="end" sideOffset={10}>
+      <PopoverContent align="end" sideOffset={8}>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-0.5">
+          <div className="flex items-center justify-between gap-2">
             <p className="text-[13px] font-medium tracking-tight">Document settings</p>
-            <p className="text-[11.5px] leading-[1.55] text-muted-foreground">
-              How the PDF exports.
-            </p>
+            <kbd className="cmdk-kbd">{`${modKey}/`}</kbd>
           </div>
 
           <label className="flex flex-col gap-1.5" htmlFor="filename">
             <span className="field-label">Filename</span>
-            <Input
-              id="filename"
-              onChange={(e) => onFilenameChange(e.target.value)}
-              placeholder="md2pdf-export"
-              value={filename}
-            />
+            <span className="filename-row">
+              <Input
+                id="filename"
+                onChange={(e) => onFilenameChange(e.target.value)}
+                placeholder="md2pdf-export"
+                value={filename}
+              />
+            </span>
           </label>
 
           <div className="flex items-center justify-between gap-4">
@@ -590,33 +950,31 @@ function SettingsPopover({
                 onCheckedChange={(v) => onChromeChange({ header: Boolean(v) })}
               />
             </div>
-            <div
-              className={cn(
-                "flex flex-col gap-3 transition-opacity duration-150",
-                !chrome.header && "pointer-events-none opacity-45",
-              )}
-            >
-              <label className="flex flex-col gap-1.5" htmlFor="chrome-title">
-                <span className="field-label">Title</span>
-                <Input
-                  disabled={!chrome.header}
-                  id="chrome-title"
-                  onChange={(e) => onChromeChange({ title: e.target.value })}
-                  placeholder={inferredTitle}
-                  value={chrome.title}
-                />
-              </label>
-              <div className="flex items-center justify-between gap-4">
-                <label className="field-label" htmlFor="chrome-date">
-                  Show date
+            <div className="collapsible-rows" data-collapsed={!chrome.header}>
+              <div className="flex flex-col gap-3">
+                <label className="flex flex-col gap-1.5" htmlFor="chrome-title">
+                  <span className="field-label">Title</span>
+                  <Input
+                    disabled={!chrome.header}
+                    id="chrome-title"
+                    onChange={(e) => onChromeChange({ title: e.target.value })}
+                    placeholder={inferredTitle}
+                    ref={titleInputRef}
+                    value={chrome.title}
+                  />
                 </label>
-                <Switch
-                  checked={chrome.date}
-                  disabled={!chrome.header}
-                  id="chrome-date"
-                  onCheckedChange={(v) => onChromeChange({ date: Boolean(v) })}
-                  size="sm"
-                />
+                <div className="flex items-center justify-between gap-4">
+                  <label className="field-label" htmlFor="chrome-date">
+                    Show date
+                  </label>
+                  <Switch
+                    checked={chrome.date}
+                    disabled={!chrome.header}
+                    id="chrome-date"
+                    onCheckedChange={(v) => onChromeChange({ date: Boolean(v) })}
+                    size="sm"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -635,43 +993,36 @@ function SettingsPopover({
                 onCheckedChange={(v) => onChromeChange({ footer: Boolean(v) })}
               />
             </div>
-            <div
-              className={cn(
-                "flex flex-col gap-3 transition-opacity duration-150",
-                !chrome.footer && "pointer-events-none opacity-45",
-              )}
-            >
-              <label className="flex flex-col gap-1.5" htmlFor="chrome-footer-note">
-                <span className="field-label">Text</span>
-                <Input
-                  disabled={!chrome.footer}
-                  id="chrome-footer-note"
-                  onChange={(e) => onChromeChange({ footerNote: e.target.value })}
-                  placeholder="Optional"
-                  value={chrome.footerNote}
-                />
-              </label>
-              <div className="flex items-center justify-between gap-4">
-                <label className="field-label" htmlFor="chrome-pages">
-                  Page numbers
+            <div className="collapsible-rows" data-collapsed={!chrome.footer}>
+              <div className="flex flex-col gap-3">
+                <label className="flex flex-col gap-1.5" htmlFor="chrome-footer-note">
+                  <span className="field-label">Text</span>
+                  <Input
+                    disabled={!chrome.footer}
+                    id="chrome-footer-note"
+                    onChange={(e) => onChromeChange({ footerNote: e.target.value })}
+                    placeholder="Optional"
+                    value={chrome.footerNote}
+                  />
                 </label>
-                <Switch
-                  checked={chrome.pageNumbers}
-                  disabled={!chrome.footer}
-                  id="chrome-pages"
-                  onCheckedChange={(v) => onChromeChange({ pageNumbers: Boolean(v) })}
-                  size="sm"
-                />
+                <div className="flex items-center justify-between gap-4">
+                  <label className="field-label" htmlFor="chrome-pages">
+                    Page numbers
+                  </label>
+                  <Switch
+                    checked={chrome.pageNumbers}
+                    disabled={!chrome.footer}
+                    id="chrome-pages"
+                    onCheckedChange={(v) => onChromeChange({ pageNumbers: Boolean(v) })}
+                    size="sm"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
           {!isChromeDefault ? (
-            <button
-              className="-mt-1 self-end text-[11.5px] text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground active:scale-[0.97]"
-              onClick={onChromeReset}
-              type="button"
-            >
+            <button className="reset-defaults" onClick={onChromeReset} type="button">
               Reset to defaults
             </button>
           ) : null}

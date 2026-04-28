@@ -22,6 +22,8 @@ export type PdfRequest = {
 export type PresetDefinition = {
   id: PdfPreset;
   name: string;
+  /** A verb capturing the document's mode of use. Surfaces in tooltips and palette. */
+  verb: string;
   summary: string;
   accent: string;
   swatch: string;
@@ -32,6 +34,7 @@ export const presets: PresetDefinition[] = [
   {
     id: "editorial",
     name: "Editorial",
+    verb: "Read it",
     summary: "Refined longform rhythm with quiet serif headings.",
     accent: "Bistre ink",
     swatch: "oklch(0.47 0.065 64)",
@@ -40,6 +43,7 @@ export const presets: PresetDefinition[] = [
   {
     id: "technical",
     name: "Technical",
+    verb: "Build it",
     summary: "Compact docs, strong code blocks, and precise tables.",
     accent: "Blueprint",
     swatch: "oklch(0.42 0.082 238)",
@@ -48,6 +52,7 @@ export const presets: PresetDefinition[] = [
   {
     id: "business",
     name: "Business",
+    verb: "Send it",
     summary: "Proposal-ready sections with measured confidence.",
     accent: "Deep laurel",
     swatch: "oklch(0.42 0.064 157)",
@@ -56,6 +61,7 @@ export const presets: PresetDefinition[] = [
   {
     id: "academic",
     name: "Academic",
+    verb: "Cite it",
     summary: "Paper-like typography for formal reading.",
     accent: "Oxide",
     swatch: "oklch(0.45 0.078 31)",
@@ -101,34 +107,33 @@ export function inferTitle(markdown: string) {
   return heading || "Untitled document";
 }
 
-export const sampleMarkdown = `# Field Notes for a Better Launch
+export const sampleMarkdown = `# Welcome to md2pdf
 
-A concise launch document should feel prepared, readable, and easy to share. MD2PDF keeps the writing in Markdown and moves the polish into presets.
+This is a live preview. Edit the Markdown on the left, pick a preset above, then export — the PDF will match this preview exactly.
 
-## What matters
+## Try the presets
 
-- A clear narrative arc
-- Tables that survive the trip to PDF
-- Code blocks that feel intentional
-- Optional page chrome for multi-page handouts
+Each preset is a typographic system. Same Markdown, different document.
 
-| Phase | Owner | Status |
+- **Editorial** — refined longform with serif headings
+- **Technical** — compact docs with strong code blocks
+- **Business** — proposal-ready, numbered sections
+- **Academic** — journal-style with indented paragraphs
+
+## Formatting at a glance
+
+| Element | Renders as | You write |
 | --- | --- | --- |
-| Draft | Product | Ready |
-| Review | Design | In progress |
-| Publish | Ops | Next |
+| Headings | Per-preset hierarchy | \`# H1\` to \`#### H4\` |
+| Tables | Tabular, kerned | \`\\| a \\| b \\|\` |
+| Code | Monospaced, language-tagged | triple backticks |
+| Blockquotes | Pull-quote treatment | \`> quote\` |
 
 > Good defaults are a form of momentum. They help the document look finished before anyone starts fiddling.
 
 \`\`\`ts
-type ExportState = "idle" | "rendering" | "ready";
-
-const nextState: ExportState = "ready";
+type State = "idle" | "ready";
 \`\`\`
 
-## Final check
-
-- [x] Paste Markdown
-- [x] Pick a preset
-- [ ] Export the PDF
+When this looks right, press **Export** at the top.
 `;

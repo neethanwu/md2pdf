@@ -26,6 +26,8 @@ type MarkdownPreviewProps = {
   showDate: boolean;
   showPageNumbers: boolean;
   footerNote?: string;
+  /** True briefly after a preset switch — adds a whisper of blur to mask reflow. */
+  switching?: boolean;
 };
 
 const HEADING_TAGS = new Set(["H1", "H2", "H3", "H4", "H5", "H6"]);
@@ -87,6 +89,7 @@ export function MarkdownPreview({
   showDate,
   showPageNumbers,
   footerNote,
+  switching = false,
 }: MarkdownPreviewProps) {
   const presetDefinition = getPreset(preset);
   const date = new Intl.DateTimeFormat("en", {
@@ -174,6 +177,7 @@ export function MarkdownPreview({
               <div className="document-body-clip" ref={isFirst ? clipRef : undefined}>
                 <div
                   className="document-content"
+                  data-switching={switching || undefined}
                   ref={isFirst ? contentRef : undefined}
                   style={
                     {
@@ -192,8 +196,15 @@ export function MarkdownPreview({
               <footer className="document-chrome document-chrome-bottom">
                 <span>{footerNote?.trim() ?? ""}</span>
                 {showPageNumbers ? (
-                  <span>
-                    Page {page.index + 1} of {pageCount}
+                  <span className="page-marker">
+                    <span className="page-marker-label">Page</span>
+                    <span className="page-marker-numbers">
+                      <span className="page-marker-current">{page.index + 1}</span>
+                      <span aria-hidden className="page-marker-of">
+                        /
+                      </span>
+                      <span className="page-marker-total">{pageCount}</span>
+                    </span>
                   </span>
                 ) : (
                   <span />

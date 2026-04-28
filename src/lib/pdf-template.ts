@@ -5,7 +5,22 @@ type TemplateOptions = {
   html: string;
   preset: PdfPreset;
   title: string;
+  chrome: DocumentChrome;
+  pageSize: PageSize;
 };
+
+/* Escape a string for use as a CSS string literal (inside `content: "..."`). */
+function escapeCssString(s: string) {
+  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " ");
+}
+
+function formatChromeDate() {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date());
+}
 
 const presetCss: Record<PdfPreset, string> = {
   editorial: `
@@ -14,9 +29,8 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.18 0.022 65);
     --pdf-muted: oklch(0.46 0.025 65);
     --pdf-rule: oklch(0.86 0.014 65);
-    --pdf-paper: oklch(0.998 0.003 80);
     --pdf-heading: "Iowan Old Style", "Charter", "Palatino", Georgia, serif;
-    --pdf-body: "Inter", "Avenir Next", "SF Pro Text", system-ui, sans-serif;
+    --pdf-body: "Hanken Grotesk", "Avenir Next", "SF Pro Text", system-ui, sans-serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
     --pdf-line: 1.7;
     --pdf-measure: 64ch;
@@ -27,9 +41,8 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.16 0.018 250);
     --pdf-muted: oklch(0.45 0.024 250);
     --pdf-rule: oklch(0.84 0.018 250);
-    --pdf-paper: oklch(0.995 0.005 248);
-    --pdf-heading: "Inter", "Aptos", "Segoe UI", system-ui, sans-serif;
-    --pdf-body: "Inter", "Aptos", "Segoe UI", system-ui, sans-serif;
+    --pdf-heading: "Hanken Grotesk", "Aptos", "Segoe UI", system-ui, sans-serif;
+    --pdf-body: "Hanken Grotesk", "Aptos", "Segoe UI", system-ui, sans-serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
     --pdf-line: 1.55;
     --pdf-measure: 72ch;
@@ -40,9 +53,8 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.17 0.018 158);
     --pdf-muted: oklch(0.45 0.022 158);
     --pdf-rule: oklch(0.85 0.014 158);
-    --pdf-paper: oklch(0.997 0.004 158);
-    --pdf-heading: "Inter", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-    --pdf-body: "Inter", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --pdf-heading: "Hanken Grotesk", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --pdf-body: "Hanken Grotesk", "Avenir Next", "Segoe UI", system-ui, sans-serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
     --pdf-line: 1.62;
     --pdf-measure: 68ch;
@@ -53,7 +65,6 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.18 0.018 30);
     --pdf-muted: oklch(0.42 0.02 30);
     --pdf-rule: oklch(0.84 0.014 30);
-    --pdf-paper: oklch(0.998 0.003 30);
     --pdf-heading: "Libertinus Serif", "Iowan Old Style", "Charter", Georgia, serif;
     --pdf-body: "Libertinus Serif", "Iowan Old Style", "Charter", Georgia, serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
@@ -64,8 +75,8 @@ const presetCss: Record<PdfPreset, string> = {
 
 const presetExtraCss: Record<PdfPreset, string> = {
   editorial: `
-    h1 { font-weight: 600; }
-    h2 { margin-top: 36pt; padding-top: 14pt; }
+    h1 { font-weight: 600; margin-bottom: 26pt; }
+    h2 { margin-top: 48pt; padding-top: 18pt; }
     h3 { font-style: italic; font-weight: 600; }
     ul { list-style: none; padding-left: 0; }
     ul > li { padding-left: 14pt; position: relative; }
@@ -241,12 +252,13 @@ const presetExtraCss: Record<PdfPreset, string> = {
     }
     table {
       border: 1px solid var(--pdf-rule);
-      border-radius: 3pt;
+      border-radius: 4pt;
+      overflow: hidden; /* clips zebra/header backgrounds against the rounded outer border, matches preview */
     }
     th {
       background: color-mix(in oklch, var(--pdf-accent) 8%, transparent);
       color: var(--pdf-ink);
-      padding: 9pt 12pt;
+      padding: 8pt 11pt;
       font-size: 0.82em;
       text-transform: uppercase;
       letter-spacing: 0.06em;
@@ -254,7 +266,7 @@ const presetExtraCss: Record<PdfPreset, string> = {
       border-bottom: 1px solid var(--pdf-rule);
     }
     td {
-      padding: 9pt 12pt;
+      padding: 8pt 11pt;
       border-bottom: 1px solid var(--pdf-rule);
     }
     tr:last-child td { border-bottom: 0; }
@@ -300,20 +312,110 @@ const presetExtraCss: Record<PdfPreset, string> = {
   `,
 };
 
-export function buildPdfHtml({ html, preset, title }: TemplateOptions) {
+export function buildPdfHtml({ html, preset, title, chrome, pageSize }: TemplateOptions) {
+  /* Chrome content via CSS @page margin boxes — Chromium renders these at the
+     document's actual scale with full CSS support, unlike puppeteer's headerTemplate
+     which lives in a shrunk iframe. */
+  const headerTitle = chrome.header ? chrome.title?.trim() || title : "";
+  const headerDate = chrome.header && chrome.date ? formatChromeDate() : "";
+  const footerNote = chrome.footer ? chrome.footerNote?.trim() || "" : "";
+  const showPages = chrome.footer && chrome.pageNumbers;
+
+  const isA4 = pageSize === "A4";
+  const margins = {
+    top: chrome.header ? (isA4 ? "32mm" : "1.25in") : isA4 ? "22mm" : "0.85in",
+    bottom: chrome.footer ? (isA4 ? "34mm" : "1.35in") : isA4 ? "22mm" : "0.85in",
+    x: isA4 ? "22mm" : "0.95in",
+  };
+
+  /* Chrome typography mirrors the preview: 8.5pt sans (matches preview's
+     10.5px when both are scaled to true paper width), preset-aware colors
+     via --pdf-muted/--pdf-ink so each preset's character carries through. */
+  const headerCss =
+    chrome.header && headerTitle
+      ? `
+    @top-left {
+      content: "${escapeCssString(headerTitle)}";
+      color: color-mix(in oklch, var(--pdf-ink) 70%, transparent);
+      font-family: var(--pdf-body);
+      font-size: 8.5pt;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      vertical-align: bottom;
+      padding-bottom: 54pt;
+    }`
+      : "";
+
+  const headerDateCss =
+    chrome.header && headerDate
+      ? `
+    @top-right {
+      content: "${escapeCssString(headerDate)}";
+      color: var(--pdf-muted);
+      font-family: var(--pdf-body);
+      font-size: 8.5pt;
+      letter-spacing: 0.02em;
+      vertical-align: bottom;
+      padding-bottom: 54pt;
+    }`
+      : "";
+
+  const footerNoteCss = footerNote
+    ? `
+    @bottom-left {
+      content: "${escapeCssString(footerNote)}";
+      color: color-mix(in oklch, var(--pdf-ink) 70%, transparent);
+      font-family: var(--pdf-body);
+      font-size: 8.5pt;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      vertical-align: top;
+      padding-top: 54pt;
+    }`
+    : "";
+
+  /* Single-region page marker. Chromium's @page rendering doesn't honor
+     ::before/::after pseudo-elements on margin boxes, so multi-color
+     "PAGE 1 / 2" with separate label vs numbers isn't possible. The
+     preview is simplified to match this uniform treatment. */
+  const pagesCss = showPages
+    ? `
+    @bottom-right {
+      content: "PAGE " counter(page) " / " counter(pages);
+      color: var(--pdf-muted);
+      font-family: var(--pdf-body);
+      font-size: 7pt;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-variant-numeric: tabular-nums;
+      vertical-align: top;
+      padding-top: 54pt;
+    }`
+    : "";
+
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;650;700&display=swap"
+    rel="stylesheet"
+  />
   <style>
-    @page { margin: 0; }
+    @page {
+      size: ${pageSize};
+      margin: ${margins.top} ${margins.x} ${margins.bottom} ${margins.x};${headerCss}${headerDateCss}${footerNoteCss}${pagesCss}
+    }
     :root { ${presetCss[preset]} }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      background: var(--pdf-paper);
+      background: #fff;
       color: var(--pdf-ink);
       font-family: var(--pdf-body);
       font-size: 11.5pt;
@@ -322,8 +424,7 @@ export function buildPdfHtml({ html, preset, title }: TemplateOptions) {
       -webkit-font-smoothing: antialiased;
     }
     main {
-      max-width: var(--pdf-measure);
-      margin: 0 auto;
+      margin: 0;
       padding: 0;
     }
     h1, h2, h3, h4 {
@@ -339,12 +440,18 @@ export function buildPdfHtml({ html, preset, title }: TemplateOptions) {
       letter-spacing: -0.02em;
     }
     h2 {
-      margin: 30pt 0 8pt;
-      padding-top: 5pt;
-      border-top: 1px solid var(--pdf-rule);
+      margin: 32pt 0 10pt;
+      padding-top: 14pt;
+      border-top: 0.5pt solid var(--pdf-rule);
       font-size: 17pt;
       font-weight: 650;
       letter-spacing: -0.005em;
+    }
+    h2:first-child,
+    h1 + h2 {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
     }
     h3 {
       margin: 22pt 0 6pt;
@@ -367,6 +474,12 @@ export function buildPdfHtml({ html, preset, title }: TemplateOptions) {
       background: color-mix(in oklch, var(--pdf-accent-soft) 60%, transparent);
       color: var(--pdf-muted);
       border-radius: 0 4px 4px 0;
+    }
+    /* Strip the bottom margin of the blockquote's last child (typically <p>)
+       so it doesn't add a visible empty line on top of the blockquote's
+       padding-bottom — matches the preview's .md-preview blockquote > :last-child rule. */
+    blockquote > :last-child {
+      margin-bottom: 0;
     }
     code {
       border-radius: 4px;
@@ -417,55 +530,5 @@ export function buildPdfHtml({ html, preset, title }: TemplateOptions) {
 </html>`;
 }
 
-export function getPdfMargins(chrome: DocumentChrome, pageSize: PageSize) {
-  const horizontal = pageSize === "A4" ? "18mm" : "0.72in";
-  const isA4 = pageSize === "A4";
-
-  const top = chrome.header ? (isA4 ? "26mm" : "1in") : isA4 ? "21mm" : "0.82in";
-
-  const bottom = chrome.footer ? (isA4 ? "27mm" : "1.04in") : isA4 ? "22mm" : "0.86in";
-
-  return { top, right: horizontal, bottom, left: horizontal };
-}
-
-const chromeStyle = `width:100%; padding:0 0.72in; font-family:Inter, "SF Pro Text", system-ui, sans-serif; font-size:8px; color:#76716a; display:flex; justify-content:space-between; align-items:center; letter-spacing:0.02em;`;
-
-export function buildHeaderTemplate(chrome: DocumentChrome, title: string) {
-  if (!chrome.header) {
-    return "<span></span>";
-  }
-
-  const date = chrome.date
-    ? `<span>${escapeHtml(
-        new Intl.DateTimeFormat("en", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }).format(new Date()),
-      )}</span>`
-    : "<span></span>";
-
-  return `<div style="${chromeStyle}">
-    <span style="font-weight:500;">${escapeHtml(chrome.title?.trim() || title)}</span>
-    ${date}
-  </div>`;
-}
-
-export function buildFooterTemplate(chrome: DocumentChrome) {
-  if (!chrome.footer) {
-    return "<span></span>";
-  }
-
-  const note = chrome.footerNote?.trim()
-    ? `<span>${escapeHtml(chrome.footerNote.trim())}</span>`
-    : "<span></span>";
-
-  const pages = chrome.pageNumbers
-    ? `<span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>`
-    : "<span></span>";
-
-  return `<div style="${chromeStyle}">
-    ${note}
-    ${pages}
-  </div>`;
-}
+/* Chrome (header/footer) is now rendered via CSS @page margin boxes inside
+   buildPdfHtml. puppeteer's headerTemplate/footerTemplate are no longer used. */

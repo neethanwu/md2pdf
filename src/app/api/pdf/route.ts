@@ -8,12 +8,7 @@ import {
   type PdfRequest,
 } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
-import {
-  buildFooterTemplate,
-  buildHeaderTemplate,
-  buildPdfHtml,
-  getPdfMargins,
-} from "@/lib/pdf-template";
+import { buildPdfHtml } from "@/lib/pdf-template";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -101,6 +96,8 @@ export async function POST(request: Request) {
       html,
       preset: payload.preset,
       title,
+      chrome: payload.chrome,
+      pageSize: payload.pageSize,
     });
 
     browser = await puppeteer.launch({
@@ -112,18 +109,17 @@ export async function POST(request: Request) {
 
     const page = await browser.newPage();
     await page.setContent(documentHtml, { waitUntil: "networkidle0" });
+    /* Webfonts: networkidle0 fires when CSS lands but before the woff2 binaries
+       fully render. Wait on document.fonts.ready so the PDF captures the typeset
+       text, not the metric-matched fallback. */
+    await page.evaluate(() => document.fonts.ready);
     await page.emulateMediaType("print");
 
-    const showChrome = payload.chrome.header || payload.chrome.footer;
-
     const pdf = await page.pdf({
-      format: payload.pageSize,
       printBackground: true,
-      displayHeaderFooter: showChrome,
-      headerTemplate: buildHeaderTemplate(payload.chrome, title),
-      footerTemplate: buildFooterTemplate(payload.chrome),
-      margin: getPdfMargins(payload.chrome, payload.pageSize),
-      preferCSSPageSize: false,
+      /* Chrome (header/footer) and page margins are owned by CSS @page rules
+         inside the document HTML. preferCSSPageSize lets them through. */
+      preferCSSPageSize: true,
     });
     const body = pdf.buffer.slice(
       pdf.byteOffset,

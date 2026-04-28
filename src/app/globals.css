@@ -99,11 +99,14 @@
 }
 
 .dark {
-  /* Dark neutrals tinted toward the same hue 237 — keeps the cool brand cohesion in dark mode. */
+  /* Dark neutrals tinted toward the same hue 237 — keeps the cool brand cohesion in dark mode.
+     Paper stays paper. The PDF prints on white; the preview should never lie about that. */
   --background: oklch(0.155 0.012 237);
   --foreground: oklch(0.985 0.003 237);
   --desk: oklch(0.185 0.014 237);
-  --paper: oklch(0.22 0.012 237);
+  --paper: oklch(
+    0.992 0.004 80
+  ); /* warm off-white — feels like real paper in dark chrome */
   --card: oklch(0.21 0.012 237);
   --card-foreground: oklch(0.985 0.003 237);
   --popover: oklch(0.21 0.012 237);
@@ -160,7 +163,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 28px;
+    gap: 22px;
     width: 100%;
   }
 
@@ -191,7 +194,19 @@
       0 1px 1px oklch(0 0 0 / 4%),
       0 6px 16px oklch(0 0 0 / 5%),
       0 24px 56px oklch(0 0 0 / 7%);
-    transition: height 280ms var(--ease-out);
+    transition:
+      height 280ms var(--ease-out),
+      opacity 280ms var(--ease-out),
+      transform 280ms var(--ease-out);
+  }
+
+  /* New paginated pages settle in from above; the first page is never animated
+     (it would flash on initial mount). */
+  .paper:not(:first-child) {
+    @starting-style {
+      opacity: 0;
+      transform: translateY(-12px) scale(0.985);
+    }
   }
 
   .paper[data-size="Letter"] {
@@ -213,11 +228,11 @@
   }
 
   .has-document-chrome-top .document-body {
-    padding-top: 36px;
+    padding-top: 68px;
   }
 
   .has-document-chrome-bottom .document-body {
-    padding-bottom: 36px;
+    padding-bottom: 68px;
   }
 
   .document-body-clip {
@@ -230,6 +245,12 @@
   .document-content {
     position: relative;
     transform: translateY(calc(var(--page-offset, 0px) * -1));
+    /* Subtle blur during preset switches masks heading/spacing reflow.
+       Toggled via data-switching from JS. */
+    filter: blur(0);
+    transition:
+      transform 320ms var(--ease-out),
+      filter 220ms var(--ease-out);
     /* Mask hides content past this page's break point so it doesn't bleed
        into the next page (the next page renders the same content anyway). */
     mask-image: linear-gradient(
@@ -244,7 +265,10 @@
       black var(--page-window, 100000px),
       transparent var(--page-window, 100000px)
     );
-    transition: transform 320ms var(--ease-out);
+  }
+
+  .document-content[data-switching="true"] {
+    filter: blur(1px);
   }
 
   /* Header / footer — no rule line, refined hierarchy. */
@@ -258,7 +282,7 @@
     justify-content: space-between;
     gap: 24px;
     min-height: 32px;
-    padding: 16px 44px 0;
+    padding: 28px 56px 0;
     color: var(--pdf-muted);
     font-family: var(--pdf-body);
     font-size: 10.5px;
@@ -267,12 +291,41 @@
   }
 
   .document-chrome-bottom {
-    padding: 0 44px 16px;
+    padding: 0 56px 28px;
   }
 
   .document-chrome > :first-child {
     color: color-mix(in oklch, var(--pdf-ink) 70%, transparent);
     font-weight: 500;
+  }
+
+  /* Page marker — uniform uppercase "PAGE 1 / 2" treatment.
+     Chromium's @page margin boxes don't honor ::before/::after, so the PDF
+     can only show one styled region. Preview is flattened to match. */
+  .page-marker {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    font-size: 0.82em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--pdf-muted);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  .page-marker-numbers {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+  }
+
+  .page-marker-label,
+  .page-marker-of,
+  .page-marker-total,
+  .page-marker-current {
+    color: inherit;
+    font-weight: inherit;
   }
 
   /* ——————————————————————————————————————————————
@@ -548,6 +601,15 @@
     border-bottom: 1px solid var(--pdf-rule);
     padding: 9px 12px 9px 0;
     vertical-align: top;
+  }
+
+  /* Zebra striping mirrors the PDF general rule. Per-preset overrides
+     (technical, business) provide their own treatments and are honored.
+     Uses relative-color syntax instead of color-mix(...transparent) because
+     Chromium drops the hue when low-chroma colors mix with transparent —
+     the result computes as oklch(L C none) and renders as pale red. */
+  .md-preview tr:nth-child(even) td {
+    background: oklch(from var(--pdf-accent-soft) l c h / 0.45);
   }
 
   .md-preview img {
@@ -1011,10 +1073,37 @@
 
   .preset-chip[data-active="true"] {
     color: var(--foreground);
-    background: var(--paper);
+    background: var(--card);
     box-shadow:
-      0 0 0 0.5px color-mix(in oklch, var(--border) 70%, transparent),
-      0 1px 2px oklch(0 0 0 / 5%);
+      0 1px 2px oklch(0 0 0 / 6%),
+      0 0 0 0.5px color-mix(in oklch, var(--border) 80%, transparent);
+  }
+
+  /* One-shot glow when the user activates a preset — the moment of choice
+     gets a quiet acknowledgment. JS sets data-just-activated for ~600ms. */
+  .preset-chip[data-just-activated="true"] {
+    animation: chip-activate 600ms var(--ease-out);
+  }
+
+  @keyframes chip-activate {
+    0% {
+      box-shadow:
+        0 1px 2px oklch(0 0 0 / 6%),
+        0 0 0 0.5px color-mix(in oklch, var(--border) 80%, transparent),
+        0 0 0 0 color-mix(in oklch, var(--sky) 35%, transparent);
+    }
+    40% {
+      box-shadow:
+        0 1px 2px oklch(0 0 0 / 6%),
+        0 0 0 0.5px color-mix(in oklch, var(--border) 80%, transparent),
+        0 0 0 6px color-mix(in oklch, var(--sky) 0%, transparent);
+    }
+    100% {
+      box-shadow:
+        0 1px 2px oklch(0 0 0 / 6%),
+        0 0 0 0.5px color-mix(in oklch, var(--border) 80%, transparent),
+        0 0 0 0 color-mix(in oklch, var(--sky) 0%, transparent);
+    }
   }
 
   .preset-chip .dot {
@@ -1023,11 +1112,32 @@
     height: 8px;
     border-radius: 999px;
     background: currentColor;
-    transition: transform 140ms var(--ease-out);
   }
 
-  .preset-chip[data-active="true"] .dot {
-    transform: scale(1.05);
+  /* Whispered swatch underline on hover — telegraphs "click and the doc takes this hue".
+     Drawn from center via scaleX. */
+  .preset-chip::after {
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: -2px;
+    height: 1px;
+    background: currentColor;
+    border-radius: 1px;
+    opacity: 0;
+    transform: scaleX(0);
+    transform-origin: center;
+    transition:
+      transform 200ms var(--ease-out),
+      opacity 160ms var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .preset-chip:hover:not([data-active="true"])::after {
+      opacity: 0.55;
+      transform: scaleX(1);
+    }
   }
 
   /* ——————————————————————————————————————————————
@@ -1072,7 +1182,7 @@
 
   .size-toggle button[data-active="true"] {
     color: var(--foreground);
-    background: var(--paper);
+    background: var(--card);
     box-shadow:
       0 0 0 0.5px color-mix(in oklch, var(--border) 70%, transparent),
       0 1px 2px oklch(0 0 0 / 4%);
@@ -1090,7 +1200,7 @@
       0 0 0 1px color-mix(in oklch, var(--border) 80%, transparent),
       0 2px 4px oklch(0 0 0 / 4%),
       0 12px 32px oklch(0 0 0 / 10%);
-    padding: 16px;
+    padding: 18px 20px;
     width: 320px;
     outline: none;
     transition:
@@ -1135,25 +1245,397 @@
     transition-duration: 0ms;
   }
 
+  /* Verb-prefix on preset tooltips: bright label, then a softer summary. */
+  .tooltip-verb {
+    font-weight: 600;
+    color: oklch(1 0 0);
+  }
+
+  .tooltip-sep,
+  .tooltip-summary {
+    color: oklch(1 0 0 / 70%);
+  }
+
   /* Field rows */
   .field-label {
     font-size: 12.5px;
     color: var(--muted-foreground);
     letter-spacing: 0.005em;
   }
+
+  /* Collapsing detail group — when a parent toggle (Header/Footer) is off,
+     children retract via grid-template-rows: 1fr → 0fr. This is the modern
+     "animate height: auto" trick — fully GPU-friendly. */
+  .collapsible-rows {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition:
+      grid-template-rows 280ms var(--ease-out),
+      opacity 200ms var(--ease-out);
+  }
+
+  .collapsible-rows > * {
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .collapsible-rows[data-collapsed="true"] {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Filename input sits inside a row that shows ".pdf" suffix as muted inline text. */
+  .filename-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .filename-row input {
+    flex: 1;
+    padding-right: 36px;
+  }
+
+  .filename-row::after {
+    content: ".pdf";
+    position: absolute;
+    right: 10px;
+    pointer-events: none;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+  }
+
+  /* Click-to-edit title chip in the top bar.
+     Same muted look at rest, underline on hover. */
+  .title-chip {
+    cursor: text;
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin: -2px -6px;
+    color: var(--muted-foreground);
+    transition:
+      color 160ms var(--ease-out),
+      background-color 160ms var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .title-chip:hover {
+      color: var(--foreground);
+      background: color-mix(in oklch, var(--foreground) 4%, transparent);
+    }
+  }
+
+  .title-chip:focus-visible {
+    outline: 0;
+    color: var(--foreground);
+    background: color-mix(in oklch, var(--sky) 10%, transparent);
+  }
+
+  /* Editor empty-state hint — only visible when textarea has no value AND not dragging. */
+  .editor-empty {
+    pointer-events: none;
+    position: absolute;
+    inset: 28px 32px 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    text-align: center;
+    color: var(--muted-foreground);
+    transition: opacity 200ms var(--ease-out);
+  }
+
+  .editor-empty[data-hidden="true"] {
+    opacity: 0;
+  }
+
+  .editor-empty-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: color-mix(in oklch, var(--foreground) 4%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-foreground);
+  }
+
+  .editor-empty-prompt {
+    font-size: 13.5px;
+    line-height: 1.55;
+    max-width: 32ch;
+  }
+
+  .editor-empty-prompt button {
+    color: var(--foreground);
+    border-bottom: 1px solid color-mix(in oklch, var(--foreground) 30%, transparent);
+    pointer-events: auto;
+    cursor: pointer;
+    transition: border-color 160ms var(--ease-out);
+  }
+
+  .editor-empty-prompt button:hover {
+    border-color: var(--foreground);
+  }
+
+  /* Command-palette / shortcuts dialog. */
+  .cmdk-backdrop {
+    position: fixed;
+    inset: 0;
+    background: oklch(0 0 0 / 28%);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    z-index: 60;
+    transition: opacity 200ms var(--ease-out);
+  }
+
+  .cmdk-backdrop[data-starting-style],
+  .cmdk-backdrop[data-ending-style] {
+    opacity: 0;
+  }
+
+  .cmdk-popup {
+    position: fixed;
+    z-index: 70;
+    top: 18vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(560px, calc(100vw - 32px));
+    background: var(--popover);
+    color: var(--popover-foreground);
+    border-radius: 14px;
+    box-shadow:
+      0 0 0 1px color-mix(in oklch, var(--border) 80%, transparent),
+      0 20px 60px oklch(0 0 0 / 24%);
+    overflow: hidden;
+    outline: none;
+    transition:
+      opacity 200ms var(--ease-out),
+      transform 200ms var(--ease-out);
+  }
+
+  .cmdk-popup[data-starting-style],
+  .cmdk-popup[data-ending-style] {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.985);
+  }
+
+  .cmdk-input {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    padding: 14px 16px;
+    font-size: 14px;
+    color: var(--foreground);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .cmdk-input::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  .cmdk-list {
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 6px;
+  }
+
+  .cmdk-empty {
+    padding: 24px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--muted-foreground);
+  }
+
+  .cmdk-group-label {
+    padding: 10px 10px 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted-foreground);
+  }
+
+  .cmdk-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--foreground);
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 120ms var(--ease-out);
+  }
+
+  .cmdk-item[data-selected="true"] {
+    background: color-mix(in oklch, var(--foreground) 6%, transparent);
+  }
+
+  .cmdk-item-icon {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    color: var(--muted-foreground);
+  }
+
+  .cmdk-item-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cmdk-item-shortcut {
+    flex: none;
+    display: inline-flex;
+    gap: 3px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cmdk-kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 4px;
+    background: color-mix(in oklch, var(--foreground) 6%, transparent);
+    color: var(--muted-foreground);
+    font-family: var(--font-sans);
+    font-size: 10.5px;
+    font-weight: 500;
+  }
+
+  /* Reset-defaults button — fades in when chrome is dirty. */
+  .reset-defaults {
+    align-self: flex-end;
+    margin-top: -4px;
+    color: var(--muted-foreground);
+    font-size: 11.5px;
+    cursor: pointer;
+    transition:
+      color 160ms var(--ease-out),
+      transform 140ms var(--ease-out),
+      opacity 200ms var(--ease-out);
+
+    @starting-style {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+  }
+
+  .reset-defaults:hover {
+    color: var(--foreground);
+  }
+
+  .reset-defaults:active {
+    transform: scale(0.97);
+  }
+
+  /* Settings trigger picks up a soft sky tint when its popover is open. */
+  .settings-trigger[aria-expanded="true"] {
+    background: color-mix(in oklch, var(--sky) 12%, transparent);
+    color: var(--foreground);
+  }
+
+  /* Fidelity tag — small sky dot + "Matches PDF" affordance in the preview-foot meta. */
+  .fidelity-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: default;
+    user-select: none;
+  }
+
+  .fidelity-tag-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--sky);
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--sky) 14%, transparent);
+    animation: fidelity-breath 6s ease-in-out infinite;
+  }
+
+  /* Soft "live" breath — confirms preview mirrors the PDF in real time. */
+  @keyframes fidelity-breath {
+    0%,
+    100% {
+      box-shadow: 0 0 0 2px color-mix(in oklch, var(--sky) 14%, transparent);
+    }
+    50% {
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--sky) 22%, transparent);
+    }
+  }
+
+  /* Triggered after a successful export — runs once. */
+  .fidelity-tag-dot[data-pulse="true"] {
+    animation:
+      fidelity-pulse 700ms var(--ease-out) 1,
+      fidelity-breath 6s ease-in-out infinite 700ms;
+  }
+
+  @keyframes fidelity-pulse {
+    0% {
+      box-shadow: 0 0 0 2px color-mix(in oklch, var(--sky) 14%, transparent);
+      transform: scale(1);
+    }
+    35% {
+      box-shadow: 0 0 0 8px color-mix(in oklch, var(--sky) 0%, transparent);
+      transform: scale(1.4);
+    }
+    100% {
+      box-shadow: 0 0 0 2px color-mix(in oklch, var(--sky) 14%, transparent);
+      transform: scale(1);
+    }
+  }
 }
 
 [data-slot="button"] {
   transition:
     transform 140ms var(--ease-out),
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease,
-    box-shadow 160ms ease;
+    background-color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out);
 }
 
 [data-slot="button"]:active:not(:disabled) {
   transform: scale(0.97);
+}
+
+/* Stacked icons cross-fade with a whisper of blur so the swap reads as one
+   morphing icon, not two icons swapping. Both icons render at the same grid
+   cell so layout doesn't reflow. */
+.icon-stack {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+.icon-stack > * {
+  grid-column: 1;
+  grid-row: 1;
+  transition:
+    opacity 200ms var(--ease-out),
+    filter 200ms var(--ease-out);
+}
+
+.icon-stack[data-pending="false"] > [data-role="pending"],
+.icon-stack[data-pending="true"] > [data-role="default"] {
+  opacity: 0;
+  filter: blur(2px);
+  pointer-events: none;
 }
 
 /* Brand mark — Hanken Grotesk, set as a logotype: heavier, tighter, slightly larger. */
@@ -1174,19 +1656,19 @@
   }
 
   .has-document-chrome-top .document-body {
-    padding-top: 30px;
+    padding-top: 54px;
   }
 
   .has-document-chrome-bottom .document-body {
-    padding-bottom: 30px;
+    padding-bottom: 54px;
   }
 
   .document-chrome {
-    padding: 14px 22px 0;
+    padding: 22px 28px 0;
   }
 
   .document-chrome-bottom {
-    padding: 0 22px 14px;
+    padding: 0 28px 22px;
   }
 }
 
@@ -1200,7 +1682,11 @@
     animation-iteration-count: 1 !important;
     /* biome-ignore lint/complexity/noImportantStyles: standard reduced-motion override */
     scroll-behavior: auto !important;
+    /* Keep color/opacity transitions (they aid comprehension); suppress movement.
+       Per WCAG / Emil Kowalski's reduced-motion guidance. */
     /* biome-ignore lint/complexity/noImportantStyles: standard reduced-motion override */
-    transition-duration: 0.001ms !important;
+    transition-property: opacity, color, background-color, border-color !important;
+    /* biome-ignore lint/complexity/noImportantStyles: standard reduced-motion override */
+    transition-duration: 200ms !important;
   }
 }
