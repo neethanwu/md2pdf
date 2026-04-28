@@ -1063,6 +1063,33 @@
     border-radius: 999px;
     margin: 0;
     min-width: 0;
+    max-width: 100%;
+    /* Mobile: chips overflow horizontally — let them scroll instead of clip,
+       and fade the right edge so users can see there's more. Hidden scrollbar
+       keeps the pill clean. */
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    mask-image: linear-gradient(
+      to right,
+      black 0,
+      black calc(100% - 18px),
+      transparent 100%
+    );
+  }
+
+  .preset-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Drop the fade once everything fits — desktop and wider tablets. */
+  @media (min-width: 480px) {
+    .preset-row {
+      mask-image: none;
+    }
   }
 
   .preset-chip {
@@ -1678,6 +1705,127 @@
    desktop dimensions and visually scaled to fit the container via JS-driven
    transform on the wrapper, so the preview's pagination and content layout
    match the exported PDF and stay consistent across screen sizes. */
+
+/* Mobile rules below — wrapped in @layer components so Tailwind utilities
+   (lg:hidden, sm:inline, etc.) defined in the utilities layer always win
+   over component-level base styles. Without this layer, .view-tabs would
+   beat .lg\:hidden on tie specificity since it appears later in source. */
+@layer components {
+  /* ——————————————————————————————————————————————
+     Mobile view switcher (Edit | Preview) — segmented control in the top
+     bar that swaps the active pane below `lg`. Visual language matches
+     .preset-row but tighter and with icons, so it reads as primary nav.
+  */
+  .view-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    background: color-mix(in oklch, var(--foreground) 4%, transparent);
+    border: 0;
+    border-radius: 999px;
+    margin: 0;
+    min-width: 0;
+  }
+
+  .view-tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    color: var(--muted-foreground);
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    transition:
+      color 160ms var(--ease-out),
+      background-color 160ms var(--ease-out),
+      transform 140ms var(--ease-out);
+  }
+
+  /* The text label is sr-only at phone widths — pencil/eye icons read
+     instantly and labels would crowd the top bar. .view-tabs is already
+     hidden by `lg:hidden` at lg+, so this rule never reaches desktop. */
+  .view-tabs button span:not(.sr-only) {
+    display: none;
+  }
+
+  .view-tabs button:active {
+    transform: scale(0.97);
+  }
+
+  .view-tabs button[data-active="true"] {
+    color: var(--foreground);
+    background: var(--card);
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 6%),
+      0 0 0 0.5px color-mix(in oklch, var(--border) 80%, transparent);
+  }
+
+  /* Export button collapses to icon-only on phones — the download icon is
+     universally legible and the label robs space the brand and view tabs
+     need. Full label returns at sm+ where the row has room. */
+  @media (max-width: 640px) {
+    .export-button {
+      padding-inline: 8px;
+      gap: 0;
+    }
+    .export-button .export-button-label {
+      display: none;
+    }
+  }
+
+  /* Safe-area awareness for iPhone home-indicator devices — the bottom-most
+     chrome shouldn't sit under the indicator. Both panes' foot rows pick up
+     the inset; the rest of the layout already nests inside h-dvh. */
+  .preview-foot,
+  section[aria-label="Markdown editor"] > div:last-child {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  /* Touch devices — bump tap targets to comfortable sizes. iOS HIG asks for
+     44pt; we settle at 36px because the visual rhythm of a dense top bar
+     matters too. Combined with generous hitbox padding via the icon-stack
+     centering, taps land reliably without ballooning the navbar. */
+  @media (pointer: coarse) {
+    [data-slot="button"][class*="size-7"],
+    [data-slot="button"][class*="h-7"] {
+      min-height: 36px;
+      min-width: 36px;
+    }
+  }
+
+  /* Mobile editor — tighter padding so more content is in view, larger
+     type so the source is comfortable to read on phones. Above sm the
+     desktop defaults take over. */
+  @media (max-width: 640px) {
+    .editor {
+      padding: 20px 20px 32px;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .editor-empty {
+      inset: 24px 20px 40px;
+      gap: 12px;
+    }
+
+    .editor-empty-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+    }
+
+    .editor-empty-prompt {
+      font-size: 13px;
+      max-width: 26ch;
+    }
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,

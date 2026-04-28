@@ -2,10 +2,12 @@
 
 import {
   ArrowDownToLineIcon,
+  EyeIcon,
   FileTextIcon,
   KeyboardIcon,
   Loader2Icon,
   MoonIcon,
+  PencilIcon,
   SlidersHorizontalIcon,
   SunIcon,
   UploadIcon,
@@ -118,6 +120,9 @@ export function Md2PdfWorkspace() {
   const [justActivatedPreset, setJustActivatedPreset] = useState<PdfPreset | null>(null);
   const [presetSwitching, setPresetSwitching] = useState(false);
   const [recents, setRecents] = useState<RecentFile[]>([]);
+  // Mobile view toggle — at <lg the workspace shows one pane at a time so
+  // each gets the full viewport. Desktop ignores this and renders the split.
+  const [view, setView] = useState<"edit" | "preview">("edit");
   const isMac = useIsMac();
   const modKey = isMac ? "⌘" : "Ctrl";
   const { resolvedTheme, setTheme } = useTheme();
@@ -537,18 +542,21 @@ export function Md2PdfWorkspace() {
     <TooltipProvider>
       <main className="flex h-dvh flex-col bg-background text-foreground">
         {/* ———————————————————— Top bar — sticky on every viewport. */}
-        <header className="relative z-20 flex h-12 shrink-0 items-center justify-between gap-4 border-b border-[var(--rule)] bg-background/90 px-5 backdrop-blur-sm sm:px-7">
+        <header className="relative z-20 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--rule)] bg-background/90 px-4 backdrop-blur-sm sm:gap-4 sm:px-7">
           <div className="flex min-w-0 items-center gap-3">
             <span className="brand select-none">md2pdf</span>
             {showInferredTitle ? (
               <>
-                <span aria-hidden="true" className="h-3.5 w-px bg-[var(--rule)]" />
+                <span
+                  aria-hidden="true"
+                  className="hidden h-3.5 w-px bg-[var(--rule)] lg:block"
+                />
                 <Tooltip>
                   <TooltipTrigger
                     render={
                       <button
                         aria-label="Edit document title"
-                        className="title-chip max-w-[28ch] truncate text-xs"
+                        className="title-chip hidden max-w-[28ch] truncate text-xs lg:inline-flex"
                         onClick={openTitleEdit}
                         type="button"
                       >
@@ -561,6 +569,31 @@ export function Md2PdfWorkspace() {
               </>
             ) : null}
           </div>
+
+          {/* Mobile/tablet view switcher — replaces the split layout below `lg`. */}
+          <fieldset className="view-tabs lg:hidden" aria-label="View">
+            <legend className="sr-only">View</legend>
+            <button
+              aria-label="Edit Markdown"
+              aria-pressed={view === "edit"}
+              data-active={view === "edit"}
+              onClick={() => setView("edit")}
+              type="button"
+            >
+              <PencilIcon aria-hidden="true" className="size-3.5" />
+              <span>Edit</span>
+            </button>
+            <button
+              aria-label="Preview document"
+              aria-pressed={view === "preview"}
+              data-active={view === "preview"}
+              onClick={() => setView("preview")}
+              type="button"
+            >
+              <EyeIcon aria-hidden="true" className="size-3.5" />
+              <span>Preview</span>
+            </button>
+          </fieldset>
 
           <div className="flex items-center gap-1">
             <Tooltip>
@@ -610,6 +643,8 @@ export function Md2PdfWorkspace() {
               <TooltipTrigger
                 render={
                   <Button
+                    aria-label={isPending ? "Exporting PDF" : "Export PDF"}
+                    className="export-button"
                     disabled={isPending}
                     onClick={exportPdf}
                     size="sm"
@@ -628,7 +663,9 @@ export function Md2PdfWorkspace() {
                         data-role="pending"
                       />
                     </span>
-                    {isPending ? "Exporting…" : "Export PDF"}
+                    <span className="export-button-label">
+                      {isPending ? "Exporting…" : "Export PDF"}
+                    </span>
                   </Button>
                 }
               />
@@ -651,14 +688,16 @@ export function Md2PdfWorkspace() {
 
         {/* ———————————————————— Workspace — fixed-viewport grid with
             internal pane scrolling. Top bar stays sticky on every device.
-            Mobile: row 1 is the editor (50dvh), row 2 fills the rest and
-            scrolls the preview internally so the navbar never moves. */}
-        <div className="grid flex-1 min-h-0 grid-cols-1 grid-rows-[50dvh_minmax(0,1fr)] lg:grid-cols-[minmax(360px,0.9fr)_minmax(480px,1.1fr)] lg:grid-rows-1">
+            <lg: a single full-height pane chosen by the view toggle, so the
+            content has the room it needs and the keyboard never collides.
+            lg+: classic two-pane split. */}
+        <div className="grid flex-1 min-h-0 grid-cols-1 grid-rows-1 lg:grid-cols-[minmax(360px,0.9fr)_minmax(480px,1.1fr)]">
           {/* Editor */}
           <section
             aria-label="Markdown editor"
-            className="relative flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-[var(--rule)] lg:border-r lg:border-b-0"
+            className="relative flex min-h-0 min-w-0 flex-col overflow-hidden lg:border-r lg:border-[var(--rule)] data-[mobile-hidden=true]:hidden lg:!flex"
             data-dragging={isDragging}
+            data-mobile-hidden={view !== "edit"}
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
             onDragOver={handleDragOver}
@@ -669,7 +708,6 @@ export function Md2PdfWorkspace() {
                 aria-label="Markdown source"
                 className="editor"
                 onChange={(event) => setMarkdown(event.target.value)}
-                placeholder="Start typing, or drop a .md file"
                 spellCheck={false}
                 value={markdown}
               />
@@ -720,7 +758,8 @@ export function Md2PdfWorkspace() {
           {/* Preview */}
           <section
             aria-label="PDF preview"
-            className="flex min-w-0 flex-col bg-[var(--desk)]"
+            className="flex min-w-0 flex-col bg-[var(--desk)] data-[mobile-hidden=true]:hidden lg:!flex"
+            data-mobile-hidden={view !== "preview"}
           >
             {/* Preset row */}
             <div className="flex shrink-0 items-center gap-3 border-b border-[var(--rule)] bg-background/70 px-5 py-3 backdrop-blur-sm sm:px-7">
@@ -780,11 +819,11 @@ export function Md2PdfWorkspace() {
             </div>
 
             {/* Preview-foot meta */}
-            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--rule)] bg-background/70 px-5 py-2 text-[11.5px] text-muted-foreground sm:px-7">
+            <div className="preview-foot flex shrink-0 items-center justify-between gap-3 border-t border-[var(--rule)] bg-background/70 px-5 py-2 text-[11.5px] text-muted-foreground sm:px-7">
               <span className="min-w-0 flex-1 truncate">
                 <span className="text-foreground/85">{activePreset.name}</span>
-                <span className="mx-1.5 opacity-40">·</span>
-                <span className="truncate">{activePreset.summary}</span>
+                <span className="mx-1.5 hidden opacity-40 sm:inline">·</span>
+                <span className="hidden truncate sm:inline">{activePreset.summary}</span>
               </span>
 
               <Tooltip>
