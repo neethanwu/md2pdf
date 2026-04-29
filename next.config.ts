@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
   },
+  /* @sparticuz/chromium ships its Chromium build as brotli blobs in `bin/` and
+     reads them at runtime via path.join(__dirname, "..", "..", "bin"). Next
+     auto-externalizes the package, but file tracing can't see the binaries
+     statically, so Vercel's serverless bundle omits them and the route throws
+     "input directory ... does not exist". Force-include them on the PDF route. */
+  outputFileTracingIncludes: {
+    "/api/pdf": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+  },
 };
 
 export default nextConfig;
