@@ -179,6 +179,19 @@ export function Md2PdfWorkspace() {
     setRecents(loadRecents());
   }, []);
 
+  /* Pre-warm the PDF lambda. Vercel cold-starts cost ~1-2s for chromium's
+     brotli extraction; if we kick it off while the user is reading or pasting
+     markdown, their first export hits a warm lambda and feels instant. The
+     HEAD handler returns immediately and triggers getBrowser() in the
+     background. Failures are silent — warmup must never surface. */
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/pdf`, {
+      method: "HEAD",
+    }).catch(() => {
+      /* ignore — warmup is best-effort */
+    });
+  }, []);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const dragCounter = useRef(0);

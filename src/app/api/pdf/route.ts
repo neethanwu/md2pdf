@@ -1,4 +1,5 @@
 import chromium from "@sparticuz/chromium";
+import type { Browser } from "puppeteer-core";
 import puppeteer from "puppeteer-core";
 import {
   inferTitle,
@@ -8,6 +9,7 @@ import {
   type PdfRequest,
 } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
+import { hasMath } from "@/lib/pdf-katex";
 import { buildPdfHtml } from "@/lib/pdf-template";
 
 export const runtime = "nodejs";
@@ -51,6 +53,38 @@ function getLaunchArgs() {
   }
 
   return ["--no-sandbox", "--disable-setuid-sandbox"];
+}
+
+/* Module-scoped browser kept alive across warm invocations. Vercel keeps the
+   lambda hot for several minutes between requests; relaunching puppeteer for
+   each export costs ~500ms that we can amortize away. The promise (not the
+   browser) is cached so concurrent first-requests share one launch. If the
+   browser disconnects (chromium crash, lambda eviction), we drop the cache
+   and the next request relaunches transparently. */
+let browserPromise: Promise<Browser> | null = null;
+
+async function getBrowser(): Promise<Browser> {
+  if (browserPromise) {
+    try {
+      const existing = await browserPromise;
+      if (existing.connected) return existing;
+    } catch {
+      /* fall through and relaunch */
+    }
+  }
+  browserPromise = (async () => {
+    const browser = await puppeteer.launch({
+      args: getLaunchArgs(),
+      defaultViewport: { width: 1200, height: 1600 },
+      executablePath: await getExecutablePath(),
+      headless: true,
+    });
+    browser.on("disconnected", () => {
+      browserPromise = null;
+    });
+    return browser;
+  })();
+  return browserPromise;
 }
 
 function parseRequest(body: unknown): PdfRequest {
@@ -235,32 +269,49 @@ const POST_RENDER_SCRIPT = `
 })();
 `;
 
+/* HEAD /api/pdf — used by the workspace to pre-warm the lambda when the user
+   opens the app, so the first real export skips chromium's brotli extraction
+   and puppeteer launch. Cheap: triggers `getBrowser()` once and returns
+   immediately. Errors are swallowed because warmup must not surface to the UI. */
+export async function HEAD() {
+  getBrowser().catch(() => {
+    /* warmup failure is a non-event */
+  });
+  return new Response(null, { status: 204 });
+}
+
 export async function POST(request: Request) {
-  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
+  let page: Awaited<ReturnType<Browser["newPage"]>> | undefined;
 
   try {
     const payload = parseRequest(await request.json());
     const title = payload.chrome.title?.trim() || inferTitle(payload.markdown);
-    const html = await markdownToHtml(payload.markdown);
+    const mathPresent = hasMath(payload.markdown);
+
+    /* Markdown processing and browser launch are independent — run them in
+       parallel so the slower one sets the floor. On a warm lambda this saves
+       ~50ms (markdown is fast); on cold start the launch dominates and the
+       overlap helps less, but it never hurts. */
+    const [html, browser] = await Promise.all([
+      markdownToHtml(payload.markdown),
+      getBrowser(),
+    ]);
     const documentHtml = buildPdfHtml({
       html,
       preset: payload.preset,
       title,
       chrome: payload.chrome,
       pageSize: payload.pageSize,
+      hasMath: mathPresent,
     });
 
-    browser = await puppeteer.launch({
-      args: getLaunchArgs(),
-      defaultViewport: { width: 1200, height: 1600 },
-      executablePath: await getExecutablePath(),
-      headless: true,
-    });
-
-    const page = await browser.newPage();
-    await page.setContent(documentHtml, { waitUntil: "networkidle0" });
-    /* Render mermaid + finalize image lifecycle + wait for fonts. The script
-       resolves once all three have settled; only then do we capture the PDF. */
+    page = await browser.newPage();
+    /* domcontentloaded instead of networkidle0: with fonts and KaTeX inlined,
+       the page has no external network requests at parse time. networkidle0's
+       500ms idle window was pure dead waiting. The post-render script below
+       still awaits document.fonts.ready, mermaid render, and image loads —
+       those are the things that actually need to settle before PDF capture. */
+    await page.setContent(documentHtml, { waitUntil: "domcontentloaded" });
     await page.evaluate(POST_RENDER_SCRIPT);
     await page.emulateMediaType("print");
 
@@ -290,6 +341,10 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   } finally {
-    await browser?.close();
+    /* Close the page, not the browser — singleton stays alive for the next
+       warm invocation. */
+    await page?.close().catch(() => {
+      /* ignore close errors */
+    });
   }
 }

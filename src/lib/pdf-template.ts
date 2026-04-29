@@ -1,6 +1,7 @@
 import type { DocumentChrome, PageSize, PdfPreset } from "@/lib/document";
 import { escapeHtml } from "@/lib/markdown";
 import { getInlinedFontFaceCss } from "@/lib/pdf-fonts";
+import { getInlinedKatexCss } from "@/lib/pdf-katex";
 
 type TemplateOptions = {
   html: string;
@@ -8,6 +9,7 @@ type TemplateOptions = {
   title: string;
   chrome: DocumentChrome;
   pageSize: PageSize;
+  hasMath: boolean;
 };
 
 /* Escape a string for use as a CSS string literal (inside `content: "..."`). */
@@ -320,7 +322,14 @@ const presetExtraCss: Record<PdfPreset, string> = {
   `,
 };
 
-export function buildPdfHtml({ html, preset, title, chrome, pageSize }: TemplateOptions) {
+export function buildPdfHtml({
+  html,
+  preset,
+  title,
+  chrome,
+  pageSize,
+  hasMath,
+}: TemplateOptions) {
   /* Chrome content via CSS @page margin boxes — Chromium renders these at the
      document's actual scale with full CSS support, unlike puppeteer's headerTemplate
      which lives in a shrunk iframe. */
@@ -419,23 +428,23 @@ export function buildPdfHtml({ html, preset, title, chrome, pageSize }: Template
     }`
     : "";
 
+  /* KaTeX is heavy (~395KB encoded) so we only emit it when the document
+     actually has math. For the typical doc we save both the inline payload
+     and the prior CDN round trip. */
+  const katexCss = hasMath ? getInlinedKatexCss() : "";
+
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
-    integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+"
-    crossorigin="anonymous"
-  />
   <style>
     /* Fonts inlined as base64 data URIs — see lib/pdf-fonts.ts. Identical
        bytes between browser preview (next/font/google self-hosted) and PDF
        lambda, no runtime CDN dependency, no silent Google Fonts fallback. */
     ${getInlinedFontFaceCss()}
+    ${katexCss}
 
     @page {
       size: ${pageSize};

@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
          readFileSync paths statically, so force-include them. */
       "./node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-latin-wght-*.woff2",
       "./node_modules/@fontsource-variable/hanken-grotesk/files/hanken-grotesk-latin-wght-*.woff2",
+      /* lib/pdf-katex.ts reads katex.min.css and the KaTeX font woff2 blobs
+         to inline math typesetting only when the markdown contains math. */
+      "./node_modules/katex/dist/katex.min.css",
+      "./node_modules/katex/dist/fonts/*.woff2",
     ],
   },
 };
