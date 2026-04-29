@@ -312,24 +312,27 @@ export function Md2PdfWorkspace() {
 
     startTransition(async () => {
       try {
-        const response = await fetch("/api/pdf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            markdown,
-            preset,
-            pageSize,
-            filename,
-            chrome: {
-              header: chrome.header,
-              footer: chrome.footer,
-              title: chrome.title || inferredTitle,
-              date: chrome.date,
-              pageNumbers: chrome.pageNumbers,
-              footerNote: chrome.footerNote,
-            },
-          }),
-        });
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/pdf`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              markdown,
+              preset,
+              pageSize,
+              filename,
+              chrome: {
+                header: chrome.header,
+                footer: chrome.footer,
+                title: chrome.title || inferredTitle,
+                date: chrome.date,
+                pageNumbers: chrome.pageNumbers,
+                footerNote: chrome.footerNote,
+              },
+            }),
+          },
+        );
 
         if (!response.ok) {
           const payload = (await response.json()) as { error?: string };
