@@ -541,9 +541,12 @@ export function Md2PdfWorkspace() {
   return (
     <TooltipProvider>
       <main className="flex h-dvh flex-col bg-background text-foreground">
-        {/* ———————————————————— Top bar — sticky on every viewport. */}
-        <header className="relative z-20 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--rule)] bg-background/90 px-4 backdrop-blur-sm sm:gap-4 sm:px-7">
-          <div className="flex min-w-0 items-center gap-3">
+        {/* ———————————————————— Top bar — sticky on every viewport.
+            Mobile is upgraded to a three-column grid in CSS so the view
+            switcher stays centered while the right-side actions fit cleanly.
+            lg+ keeps the normal flex row and lets the title chip breathe. */}
+        <header className="topbar relative z-20 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--rule)] bg-background/90 px-4 backdrop-blur-sm sm:gap-4 sm:px-7">
+          <div className="topbar-brand flex min-w-0 flex-1 items-center gap-3 lg:flex-initial">
             <span className="brand select-none">md2pdf</span>
             {showInferredTitle ? (
               <>
@@ -595,12 +598,13 @@ export function Md2PdfWorkspace() {
             </button>
           </fieldset>
 
-          <div className="flex items-center gap-1">
+          <div className="topbar-actions flex flex-1 items-center justify-end gap-1 lg:flex-initial">
             <Tooltip>
               <TooltipTrigger
                 render={
                   <Button
                     aria-label="Upload Markdown file"
+                    className="mobile-upload-trigger"
                     onClick={() => fileInputRef.current?.click()}
                     size="icon-sm"
                     type="button"
@@ -664,7 +668,12 @@ export function Md2PdfWorkspace() {
                       />
                     </span>
                     <span className="export-button-label">
-                      {isPending ? "Exporting…" : "Export PDF"}
+                      <span className="export-button-label-short">
+                        {isPending ? "…" : "PDF"}
+                      </span>
+                      <span className="export-button-label-full">
+                        {isPending ? "Exporting…" : "Export PDF"}
+                      </span>
                     </span>
                   </Button>
                 }
@@ -734,15 +743,16 @@ export function Md2PdfWorkspace() {
               </div>
             </div>
 
-            {/* Stats rail */}
-            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--rule)] px-5 py-2 text-[11.5px] text-muted-foreground sm:px-7">
+            {/* Stats rail — taller on touch so "Load sample" is a real
+                tap target, normal on desktop where pointer-fine handles it. */}
+            <div className="stats-rail flex shrink-0 items-center justify-between gap-3 border-t border-[var(--rule)] px-5 text-[11.5px] text-muted-foreground sm:px-7">
               <span className="tabular-nums tracking-wide">
                 {wordCount.toLocaleString()} words
                 <span className="mx-1.5 opacity-40">·</span>
                 {markdown.length.toLocaleString()} chars
               </span>
               <button
-                className="text-muted-foreground hover:text-foreground active:scale-[0.97]"
+                className="stats-rail-action text-muted-foreground hover:text-foreground active:scale-[0.97]"
                 onClick={loadSample}
                 style={{
                   transition:
@@ -761,8 +771,9 @@ export function Md2PdfWorkspace() {
             className="flex min-w-0 flex-col bg-[var(--desk)] data-[mobile-hidden=true]:hidden lg:!flex"
             data-mobile-hidden={view !== "preview"}
           >
-            {/* Preset row */}
-            <div className="flex shrink-0 items-center gap-3 border-b border-[var(--rule)] bg-background/70 px-5 py-3 backdrop-blur-sm sm:px-7">
+            {/* Preset row — tighter vertical chrome on phones so the paper
+                wins more of the small viewport; restored on desktop. */}
+            <div className="flex shrink-0 items-center gap-3 border-b border-[var(--rule)] bg-background/70 px-5 py-2.5 backdrop-blur-sm sm:px-7 sm:py-3">
               <fieldset className="preset-row">
                 <legend className="sr-only">Preset</legend>
                 {presets.map((p) => (
@@ -800,9 +811,10 @@ export function Md2PdfWorkspace() {
             </div>
 
             {/* Paper — internal scroll on every viewport so the navbar
-                stays sticky and only the preview pane scrolls. */}
+                stays sticky and only the preview pane scrolls. Phone-tight
+                vertical padding keeps `--desk` from dwarfing the document. */}
             <div className="flex-1 min-h-0 overflow-auto">
-              <div className="px-5 py-10 sm:px-10 sm:py-16">
+              <div className="px-5 py-6 sm:px-10 sm:py-16">
                 <MarkdownPreview
                   chromeTitle={chrome.title || inferredTitle}
                   footerNote={chrome.footerNote}
@@ -1015,7 +1027,6 @@ function SettingsPopover({
                     disabled={!chrome.header}
                     id="chrome-date"
                     onCheckedChange={(v) => onChromeChange({ date: Boolean(v) })}
-                    size="sm"
                   />
                 </div>
               </div>
@@ -1057,7 +1068,6 @@ function SettingsPopover({
                     disabled={!chrome.footer}
                     id="chrome-pages"
                     onCheckedChange={(v) => onChromeChange({ pageNumbers: Boolean(v) })}
-                    size="sm"
                   />
                 </div>
               </div>

@@ -1085,8 +1085,9 @@
     display: none;
   }
 
-  /* Drop the fade once everything fits — desktop and wider tablets. */
-  @media (min-width: 480px) {
+  /* Drop the fade at the actual fit width — the four chips fit cleanly at
+     iPhone 15 Pro Max (430px), so the mask only earns its keep below that. */
+  @media (min-width: 432px) {
     .preset-row {
       mask-image: none;
     }
@@ -1766,24 +1767,15 @@
       0 0 0 0.5px color-mix(in oklch, var(--border) 80%, transparent);
   }
 
-  /* Export button collapses to icon-only on phones — the download icon is
-     universally legible and the label robs space the brand and view tabs
-     need. Full label returns at sm+ where the row has room. */
-  @media (max-width: 640px) {
-    .export-button {
-      padding-inline: 8px;
-      gap: 0;
-    }
-    .export-button .export-button-label {
-      display: none;
-    }
+  .export-button-label-short {
+    display: none;
   }
 
   /* Safe-area awareness for iPhone home-indicator devices — the bottom-most
-     chrome shouldn't sit under the indicator. Both panes' foot rows pick up
-     the inset; the rest of the layout already nests inside h-dvh. */
-  .preview-foot,
-  section[aria-label="Markdown editor"] > div:last-child {
+     chrome shouldn't sit under the indicator. The preview foot meta picks
+     up the inset; the editor's stats rail does the same in its own rule
+     below so it can also handle its tap-target sizing in one place. */
+  .preview-foot {
     padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
 
@@ -1799,6 +1791,35 @@
     }
   }
 
+  /* Stats rail — desktop default is a thin 8px rail with a hairline tap
+     hitbox for "Load sample". Touch devices get a comfortable hitbox
+     without growing the typographic line. Both modes honor the iPhone
+     home-indicator inset on the bottom edge. */
+  .stats-rail {
+    padding-top: 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .stats-rail-action {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 0;
+    margin: -4px 0;
+    border-radius: 4px;
+  }
+
+  @media (pointer: coarse) {
+    .stats-rail {
+      padding-top: 10px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+    .stats-rail-action {
+      padding: 8px 10px;
+      margin: -8px -10px;
+      font-size: 12.5px;
+    }
+  }
+
   /* Mobile editor — tighter padding so more content is in view, larger
      type so the source is comfortable to read on phones. Above sm the
      desktop defaults take over. */
@@ -1811,7 +1832,7 @@
 
     .editor-empty {
       inset: 24px 20px 40px;
-      gap: 12px;
+      gap: 14px;
     }
 
     .editor-empty-icon {
@@ -1822,8 +1843,52 @@
 
     .editor-empty-prompt {
       font-size: 13px;
+      line-height: 1.6;
       max-width: 26ch;
     }
+  }
+}
+
+/* Mobile top bar polish lives outside Tailwind's cascade layers so it can
+   intentionally override utility-generated `flex`, width, and height rules. */
+@media (max-width: 640px) {
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 8px;
+    height: 56px;
+  }
+
+  .topbar-brand {
+    justify-self: start;
+  }
+
+  .topbar-actions {
+    min-width: 0;
+    justify-self: end;
+  }
+
+  [data-slot="button"].mobile-upload-trigger,
+  [data-slot="button"].settings-trigger,
+  [data-slot="button"].export-button {
+    min-width: 36px;
+    min-height: 36px;
+    width: 36px;
+    height: 36px;
+  }
+
+  [data-slot="button"].export-button {
+    padding: 0;
+    gap: 0;
+  }
+
+  .export-button .export-button-label {
+    display: none;
+  }
+
+  .export-button [data-icon] svg {
+    width: 16px;
+    height: 16px;
   }
 }
 
