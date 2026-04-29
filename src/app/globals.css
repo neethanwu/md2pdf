@@ -272,19 +272,25 @@
     transition:
       transform 320ms var(--ease-out),
       filter 220ms var(--ease-out);
-    /* Mask hides content past this page's break point so it doesn't bleed
-       into the next page (the next page renders the same content anyway). */
+    /* Mask is in the element's local (untranslated) coordinate space, so it
+       must cover [page-offset, page-offset + page-window] — not [0, page-window].
+       Without the offset, pages after the first mask out their own slice and
+       render blank, even though the content is in the DOM. */
     mask-image: linear-gradient(
       to bottom,
-      black 0,
-      black var(--page-window, 100000px),
-      transparent var(--page-window, 100000px)
+      transparent 0,
+      transparent var(--page-offset, 0px),
+      black var(--page-offset, 0px),
+      black calc(var(--page-offset, 0px) + var(--page-window, 100000px)),
+      transparent calc(var(--page-offset, 0px) + var(--page-window, 100000px))
     );
     -webkit-mask-image: linear-gradient(
       to bottom,
-      black 0,
-      black var(--page-window, 100000px),
-      transparent var(--page-window, 100000px)
+      transparent 0,
+      transparent var(--page-offset, 0px),
+      black var(--page-offset, 0px),
+      black calc(var(--page-offset, 0px) + var(--page-window, 100000px)),
+      transparent calc(var(--page-offset, 0px) + var(--page-window, 100000px))
     );
   }
 
@@ -639,7 +645,166 @@
   .md-preview img {
     max-width: 100%;
     height: auto;
+    border-radius: 3px;
+    display: block;
+    margin: 0 auto;
+    /* Image lifecycle: a 1px neutral border holds layout while the image
+       decodes; on load the border fades to transparent so the image takes
+       over. No shimmer — too noisy for editorial. */
+    box-shadow: 0 0 0 1px var(--pdf-rule);
+    transition:
+      box-shadow 200ms var(--ease-out),
+      opacity 200ms var(--ease-out);
+  }
+
+  .md-preview img[data-state="loading"] {
+    opacity: 0.65;
+  }
+
+  .md-preview img[data-state="loaded"] {
+    box-shadow: none;
+    opacity: 1;
+  }
+
+  /* Figures — atomic units. Center the image, italicize the caption, keep
+     the pair page-break-safe via the pagination's keep-together selector. */
+  .md-preview figure.md-image-figure {
+    margin: 22px auto;
+    padding: 0;
+    text-align: center;
+    max-width: 100%;
+  }
+
+  .md-preview figure.md-image-figure img {
+    margin: 0 auto;
+  }
+
+  .md-preview figure.md-image-figure figcaption {
+    font-size: 0.82em;
+    color: var(--pdf-muted);
+    font-style: italic;
+    margin-top: 8px;
+    line-height: 1.45;
+    max-width: 56ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Broken image fallback — calm, in-flow, never a missing-glyph icon. */
+  .md-preview .md-image-broken {
+    display: inline-block;
+    padding: 4px 10px;
+    border: 1px dashed var(--pdf-rule);
+    border-radius: 3px;
+    color: var(--pdf-muted);
+    font-style: italic;
+    font-size: 0.92em;
+  }
+
+  /* —————————————————————————————————————————————————————————————
+     Math — KaTeX inherits the document's color tokens so display blocks
+     read as typeset text, not as embedded equations.
+  */
+  .md-preview .katex {
+    color: var(--pdf-ink);
+    font-size: 1.04em;
+  }
+
+  .md-preview .katex-display {
+    margin: 18px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .md-preview .katex-display > .katex {
+    font-size: 1.14em;
+  }
+
+  /* —————————————————————————————————————————————————————————————
+     Mermaid — paper-aligned wrapper. Blur-to-clarity fade-in once per
+     render (one-shot per diagram, never on preset switch). Academic
+     gets thin top/bottom rules to suggest "figure".
+  */
+  .md-preview .md-mermaid {
+    margin: 22px auto;
+    text-align: center;
+    max-width: 100%;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      filter 220ms var(--ease-out),
+      opacity 220ms var(--ease-out);
+  }
+
+  .md-preview .md-mermaid[data-state="pending"] {
+    filter: blur(2px);
+    opacity: 0.55;
+    /* Subtle dotted-border placeholder while mermaid bootstraps and renders.
+       Reservation only — no spinner. */
+    border: 1px dashed var(--pdf-rule);
     border-radius: 4px;
+    color: var(--pdf-muted);
+    font-size: 0.9em;
+  }
+
+  .md-preview .md-mermaid[data-state="ready"] {
+    filter: blur(0);
+    opacity: 1;
+  }
+
+  .md-preview .md-mermaid svg {
+    display: inline-block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .md-preview .md-mermaid-error {
+    display: block;
+    text-align: left;
+    border: 0;
+    background: none;
+    filter: none;
+    opacity: 1;
+  }
+
+  .md-preview .md-mermaid-error pre {
+    margin: 0 0 6px;
+  }
+
+  .md-preview .md-mermaid-error-note {
+    font-style: italic;
+    color: var(--pdf-muted);
+    font-size: 0.92em;
+    margin: 0;
+  }
+
+  .preset-academic .md-mermaid[data-state="ready"],
+  .preset-academic figure.md-image-figure {
+    border-top: 1px solid var(--pdf-rule);
+    border-bottom: 1px solid var(--pdf-rule);
+    padding: 14px 0 12px;
+  }
+
+  /* —————————————————————————————————————————————————————————————
+     Link annotation — paper presets surface the destination beside the
+     link text. Driven by the data-print-url attribute that's added in
+     the markdown pipeline (PDF) and the preview's `<a>` mapper (UI).
+     Only http(s) and mailto links carry the attribute, so the selector
+     is naturally narrow.
+  */
+  /* The preset class and .md-preview both live on the same <article>, so
+     these match via `.preset-editorial.md-preview` (no descendant combinator). */
+  .preset-editorial.md-preview a[data-print-url]::after,
+  .preset-academic.md-preview a[data-print-url]::after {
+    content: " [" attr(data-print-url) "]";
+    color: var(--pdf-muted);
+    font-size: 0.78em;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    overflow-wrap: anywhere;
+    border-bottom: 0;
   }
 
   /* ——————————————————————————————————————————————
@@ -1432,6 +1597,17 @@
 
   .editor-empty-prompt button:hover {
     border-color: var(--foreground);
+  }
+
+  /* Secondary line under the prompt — quiet capability hint. No badge, no
+     "NEW", no separate font — just a small muted line. Discovery without
+     announcement. */
+  .editor-empty-secondary {
+    display: block;
+    margin-top: 10px;
+    color: color-mix(in oklch, var(--muted-foreground) 75%, transparent);
+    font-size: 12px;
+    letter-spacing: 0.005em;
   }
 
   /* Command-palette / shortcuts dialog. */

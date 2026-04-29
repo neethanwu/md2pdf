@@ -107,6 +107,25 @@ export function inferTitle(markdown: string) {
   return heading || "Untitled document";
 }
 
+/* A tiny inline SVG used as the sample doc's image. Embedded as a data URL so
+   the sample renders identically offline and exercises the data-URL path that
+   pasted images take. */
+const SAMPLE_IMAGE_DATA_URL =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 120" role="img" aria-label="Sample">` +
+      `<rect width="320" height="120" fill="#f5f1ea"/>` +
+      `<g fill="none" stroke="#7b4a1f" stroke-width="2" stroke-linecap="round">` +
+      `<polyline points="20,92 80,72 140,82 200,46 260,58 300,30"/>` +
+      `</g>` +
+      `<g fill="#7b4a1f">` +
+      `<circle cx="80" cy="72" r="3"/><circle cx="140" cy="82" r="3"/>` +
+      `<circle cx="200" cy="46" r="3"/><circle cx="260" cy="58" r="3"/>` +
+      `</g>` +
+      `<text x="20" y="22" font-family="Georgia, serif" font-size="13" fill="#3a2410">Quarterly trend</text>` +
+      `</svg>`,
+  );
+
 export const sampleMarkdown = `# Welcome to md2pdf
 
 This is a live preview. Edit the Markdown on the left, pick a preset above, then export — the PDF will match this preview exactly.
@@ -134,6 +153,26 @@ Each preset is a typographic system. Same Markdown, different document.
 \`\`\`ts
 type State = "idle" | "ready";
 \`\`\`
+
+## Math, diagrams, and images
+
+Math typesets inline like $E = mc^2$, and breaks out for display:
+
+$$\\int_{0}^{\\infty} e^{-x^{2}}\\,dx = \\frac{\\sqrt{\\pi}}{2}$$
+
+Mermaid diagrams adopt the active preset's ink:
+
+\`\`\`mermaid
+flowchart LR
+  A[Markdown] --> B{Preset}
+  B --> C[PDF]
+\`\`\`
+
+Images take captions from the link title. Paste a screenshot into the editor and md2pdf embeds it inline.
+
+![Sample chart](${SAMPLE_IMAGE_DATA_URL} "Quarterly trend across four checkpoints")
+
+Links stay clickable in the export. Paper presets print the destination beside them — see the [Markdown spec](https://commonmark.org).
 
 When this looks right, press **Export** at the top.
 `;

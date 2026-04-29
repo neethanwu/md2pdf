@@ -309,6 +309,13 @@ const presetExtraCss: Record<PdfPreset, string> = {
       padding: 7pt 10pt 7pt 0;
     }
     table tr:last-child td { border-bottom: 2pt solid var(--pdf-ink); }
+    /* Academic figures take a journal-style rule above and below — signals
+       "this is a figure" without a heavy box. */
+    figure, .md-mermaid {
+      border-top: 0.5pt solid var(--pdf-rule);
+      border-bottom: 0.5pt solid var(--pdf-rule);
+      padding: 12pt 0 10pt;
+    }
   `,
 };
 
@@ -394,6 +401,23 @@ export function buildPdfHtml({ html, preset, title, chrome, pageSize }: Template
     }`
     : "";
 
+  /* Link annotation: paper presets surface the destination after each external
+     link via attr() in print. The data-print-url attribute is added by the
+     markdown pipeline (see annotateExternalLinks in markdown.ts). */
+  const showPrintUrls = preset === "editorial" || preset === "academic";
+  const linkAnnotationCss = showPrintUrls
+    ? `
+    a[data-print-url]::after {
+      content: " [" attr(data-print-url) "]";
+      color: var(--pdf-muted);
+      font-size: 0.78em;
+      font-weight: 400;
+      letter-spacing: 0.01em;
+      overflow-wrap: anywhere;
+      border-bottom: 0;
+    }`
+    : "";
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -405,6 +429,12 @@ export function buildPdfHtml({ html, preset, title, chrome, pageSize }: Template
   <link
     href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;650;700&display=swap"
     rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+    integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+"
+    crossorigin="anonymous"
   />
   <style>
     @page {
@@ -518,9 +548,81 @@ export function buildPdfHtml({ html, preset, title, chrome, pageSize }: Template
       vertical-align: top;
     }
     tr:nth-child(even) td { background: color-mix(in oklch, var(--pdf-accent-soft) 45%, transparent); }
-    img { max-width: 100%; height: auto; border-radius: 4px; }
+    /* Images and figures — atomic units that don't break across pages.
+       Standalone <img> nodes (e.g., from inline image tokens) inherit the
+       same treatment so an unwrapped image still feels like a figure. */
+    img { max-width: 100%; height: auto; border-radius: 3px; display: block; margin: 0 auto; }
+    figure {
+      margin: 18pt auto;
+      padding: 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      text-align: center;
+    }
+    figure img { margin: 0 auto; }
+    figcaption {
+      font-size: 9.5pt;
+      color: var(--pdf-muted);
+      font-style: italic;
+      margin-top: 6pt;
+      line-height: 1.45;
+      max-width: 56ch;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    /* Broken image fallback — calm, in-flow, never a missing-glyph icon. */
+    .md-image-broken {
+      display: inline-block;
+      padding: 4pt 8pt;
+      border: 1px dashed var(--pdf-rule);
+      color: var(--pdf-muted);
+      font-style: italic;
+      font-size: 0.92em;
+      border-radius: 2pt;
+    }
+
+    /* Math display — center on the measure with breath above and below. */
+    .katex-display {
+      margin: 14pt 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      overflow-x: auto;
+    }
+    .katex {
+      color: var(--pdf-ink);
+      font-size: 1.04em;
+    }
+    .katex-display > .katex { font-size: 1.12em; }
+
+    /* Mermaid wrapper — paper-aligned, atomic, with academic-only rule frames. */
+    .md-mermaid {
+      margin: 18pt auto;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      text-align: center;
+      max-width: 100%;
+    }
+    .md-mermaid svg {
+      display: inline-block;
+      max-width: 100%;
+      height: auto;
+    }
+    .md-mermaid-error {
+      text-align: left;
+    }
+    .md-mermaid-error pre {
+      margin-bottom: 4pt;
+    }
+    .md-mermaid-error-note {
+      font-style: italic;
+      color: var(--pdf-muted);
+      font-size: 0.92em;
+      margin: 0;
+    }
+
     hr { height: 1px; margin: 24pt 0; border: 0; background: var(--pdf-rule); }
     input[type="checkbox"] { margin-right: 6pt; transform: translateY(1px); }
+    ${linkAnnotationCss}
     ${presetExtraCss[preset]}
   </style>
 </head>

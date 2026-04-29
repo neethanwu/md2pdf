@@ -59,6 +59,48 @@ type RecentFile = { name: string; markdown: string; ts: number };
 const RECENTS_KEY = "md2pdf:recents";
 const RECENTS_MAX = 3;
 
+/* Upload + paste limits. The markdown source can carry pasted data URLs, so
+   the source ceiling is 4MB; an individual pasted image caps at 3MB so a
+   single screenshot can never crowd out the rest of the document. */
+const MAX_MARKDOWN_BYTES = 4_000_000;
+const MAX_INLINE_IMAGE_BYTES = 3_000_000;
+
+/* Inspect the markdown for what's inside so the export toast can describe the
+   stages truthfully — never claim to render math that isn't there. */
+function inspectMarkdown(md: string) {
+  const hasMath = /(\$\$[\s\S]+?\$\$)|(\$[^$\n]+?\$)/.test(md);
+  const mermaidCount = (md.match(/```mermaid\s/g) ?? []).length;
+  const imageCount = (md.match(/!\[[^\]]*\]\(/g) ?? []).length;
+  return { hasMath, mermaidCount, imageCount };
+}
+
+type ToastStage = { id: string; description: string; durationMs: number };
+
+function planExportStages({
+  hasMath,
+  mermaidCount,
+  imageCount,
+}: ReturnType<typeof inspectMarkdown>): ToastStage[] {
+  const stages: ToastStage[] = [];
+  if (hasMath)
+    stages.push({ id: "math", description: "Rendering math…", durationMs: 400 });
+  if (mermaidCount > 0)
+    stages.push({
+      id: "diagrams",
+      description: "Drawing diagrams…",
+      durationMs: 600 * mermaidCount,
+    });
+  if (imageCount > 0)
+    stages.push({
+      id: "images",
+      description: "Loading images…",
+      durationMs: Math.min(2000, 250 * imageCount),
+    });
+  // Final stage holds the toast until the response resolves; duration is unused.
+  stages.push({ id: "typeset", description: "Typesetting PDF", durationMs: 0 });
+  return stages;
+}
+
 /** Pick a default page size based on the user's locale.
  *  Letter for North America (US/CA/MX), A4 everywhere else. */
 const LETTER_LOCALES = /^(en-US|en-CA|es-MX|fr-CA)/i;
@@ -138,6 +180,7 @@ export function Md2PdfWorkspace() {
   }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
   const dragCounter = useRef(0);
 
   const inferredTitle = useMemo(() => inferTitle(markdown), [markdown]);
@@ -173,9 +216,9 @@ export function Md2PdfWorkspace() {
         return;
       }
 
-      if (file.size > 500_000) {
+      if (file.size > MAX_MARKDOWN_BYTES) {
         toast.error("File too large", {
-          description: "Markdown files this size aren't supported (limit: 500 KB).",
+          description: "Markdown files this size aren't supported (limit: 4 MB).",
         });
         return;
       }
@@ -190,6 +233,47 @@ export function Md2PdfWorkspace() {
     [recordRecent],
   );
 
+  // Read an image File, encode as a data URL, and splice ![](data:…) at the
+  // textarea cursor — preserving the user's caret position. Used by both
+  // paste and drop. Refuses anything over 3MB so pasted screenshots can't
+  // accidentally inflate the source past the upload ceiling.
+  const insertImageAtCursor = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) return false;
+    if (file.size > MAX_INLINE_IMAGE_BYTES) {
+      toast.error("Image too large", {
+        description:
+          "Embedded images can be up to 3 MB. Host larger images and link them instead.",
+      });
+      return true; // handled (rejected) — caller should not fall through
+    }
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
+    const insertion = `![](${dataUrl})`;
+    const textarea = editorRef.current;
+
+    setMarkdown((current) => {
+      const start = textarea?.selectionStart ?? current.length;
+      const end = textarea?.selectionEnd ?? current.length;
+      const next = current.slice(0, start) + insertion + current.slice(end);
+      // Restore cursor on the next paint, after React applies the new value.
+      requestAnimationFrame(() => {
+        if (!textarea) return;
+        const cursor = start + insertion.length;
+        textarea.setSelectionRange(cursor, cursor);
+        textarea.focus();
+      });
+      return next;
+    });
+
+    toast.success("Image embedded");
+    return true;
+  }, []);
+
   const exportPdf = useCallback(() => {
     if (!markdown.trim()) {
       toast.error("Nothing to export yet", {
@@ -198,9 +282,35 @@ export function Md2PdfWorkspace() {
       return;
     }
 
-    startTransition(async () => {
-      const exportToast = toast.loading("Typesetting PDF");
+    /* Multi-stage toast — describe what's happening in honest terms.
+       Stages are derived from the markdown's actual contents, so a plain-text
+       document still sees a single "Typesetting PDF" message. The toast id
+       is shared across stages so we update in place rather than spawning
+       new toasts. */
+    const stages = planExportStages(inspectMarkdown(markdown));
+    const exportToast = toast.loading(stages[0].description);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let elapsed = 0;
+    for (let i = 1; i < stages.length; i++) {
+      elapsed += stages[i - 1].durationMs;
+      const stage = stages[i];
+      timers.push(
+        setTimeout(() => toast.loading(stage.description, { id: exportToast }), elapsed),
+      );
+    }
+    // Honest fallback if the real export overshoots the estimate by 4s.
+    const totalEstimate = stages.slice(0, -1).reduce((acc, s) => acc + s.durationMs, 0);
+    timers.push(
+      setTimeout(
+        () => toast.loading("Still typesetting…", { id: exportToast }),
+        totalEstimate + 4000,
+      ),
+    );
+    const clearStageTimers = () => {
+      for (const t of timers) clearTimeout(t);
+    };
 
+    startTransition(async () => {
       try {
         const response = await fetch("/api/pdf", {
           method: "POST",
@@ -236,6 +346,7 @@ export function Md2PdfWorkspace() {
         link.remove();
         URL.revokeObjectURL(url);
 
+        clearStageTimers();
         toast.success("PDF exported", {
           id: exportToast,
           description: `${activePreset.name} · ${pageSize}`,
@@ -245,6 +356,7 @@ export function Md2PdfWorkspace() {
         setPulseFidelity(true);
         setTimeout(() => setPulseFidelity(false), 800);
       } catch (error) {
+        clearStageTimers();
         toast.error("Export failed", {
           id: exportToast,
           description: error instanceof Error ? error.message : "Try again in a moment.",
@@ -405,8 +517,35 @@ export function Md2PdfWorkspace() {
     e.preventDefault();
     dragCounter.current = 0;
     setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) void handleFile(file);
+    const files = Array.from(e.dataTransfer.files ?? []);
+    if (files.length === 0) return;
+    /* Prefer markdown when both kinds are dropped — the .md is the headline
+       action; images are an additive convenience. */
+    const markdownFile = files.find((f) => /\.(md|markdown|txt)$/i.test(f.name));
+    if (markdownFile) {
+      void handleFile(markdownFile);
+      return;
+    }
+    const imageFile = files.find((f) => f.type.startsWith("image/"));
+    if (imageFile) {
+      void insertImageAtCursor(imageFile);
+      return;
+    }
+    // Falls through to the existing markdown validator's error path so the
+    // user gets a clear "Markdown files only" toast for unsupported types.
+    void handleFile(files[0]);
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = Array.from(e.clipboardData?.items ?? []);
+    const imageItem = items.find(
+      (it) => it.kind === "file" && it.type.startsWith("image/"),
+    );
+    if (!imageItem) return;
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+    void insertImageAtCursor(file);
   }
 
   // Build commands for the palette. Order matters — first match is the default-selected.
@@ -691,6 +830,8 @@ export function Md2PdfWorkspace() {
                 aria-label="Markdown source"
                 className="editor"
                 onChange={(event) => setMarkdown(event.target.value)}
+                onPaste={handlePaste}
+                ref={editorRef}
                 spellCheck={false}
                 value={markdown}
               />
@@ -710,6 +851,9 @@ export function Md2PdfWorkspace() {
                     load the sample
                   </button>
                   .
+                  <span className="editor-empty-secondary">
+                    Math, diagrams, and images render too.
+                  </span>
                 </span>
               </div>
               <div aria-hidden="true" className="drop-hint">

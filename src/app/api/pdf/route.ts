@@ -14,6 +14,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+/* Raised from 500KB to make pasted-image documents practical. The hard ceiling
+   keeps the PDF route honest about timeouts and memory while giving rich
+   markdown room to breathe. */
+const MAX_MARKDOWN_BYTES = 4_000_000;
+
 const localChromePaths = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -62,7 +67,7 @@ function parseRequest(body: unknown): PdfRequest {
     throw new Error("Add Markdown before exporting.");
   }
 
-  if (markdown.length > 500_000) {
+  if (markdown.length > MAX_MARKDOWN_BYTES) {
     throw new Error("This document is too large for the first version.");
   }
 
@@ -84,6 +89,151 @@ function parseRequest(body: unknown): PdfRequest {
     },
   };
 }
+
+/* Run inside the Puppeteer page after content + fonts settle. Mermaid is
+   loaded from CDN once per page lifetime, then each ```mermaid block is
+   replaced with the rendered SVG. Theme variables come from the document's
+   active preset CSS vars so diagrams take the preset's ink. Images are
+   awaited (and broken ones replaced with a calm in-flow fallback) so the
+   capture happens against a settled page. */
+const POST_RENDER_SCRIPT = `
+(async () => {
+  const root = document.documentElement;
+  const cs = getComputedStyle(root);
+  /* Mermaid's color parser doesn't accept OKLCH. Resolve each CSS variable
+     through a 1×1 canvas (which IS oklch-aware) and read the rendered
+     pixel back as hex. Cheap, deterministic, no library. */
+  const cssToHex = (input, fallback) => {
+    if (!input) return fallback;
+    const trimmed = String(input).trim();
+    if (!trimmed) return fallback;
+    if (trimmed.startsWith("#")) return trimmed;
+    try {
+      const c = document.createElement("canvas");
+      c.width = 1; c.height = 1;
+      const ctx = c.getContext("2d");
+      if (!ctx) return fallback;
+      ctx.fillStyle = "#000";
+      ctx.fillStyle = trimmed;
+      ctx.fillRect(0, 0, 1, 1);
+      const data = ctx.getImageData(0, 0, 1, 1).data;
+      const hex = (n) => n.toString(16).padStart(2, "0");
+      return "#" + hex(data[0]) + hex(data[1]) + hex(data[2]);
+    } catch (e) { return fallback; }
+  };
+  const v = (name, fallback) => cssToHex(cs.getPropertyValue(name), fallback);
+
+  // Mermaid — only load if there's at least one block.
+  const mermaidBlocks = Array.from(document.querySelectorAll("pre > code.language-mermaid"));
+  if (mermaidBlocks.length > 0) {
+    if (!window.mermaid) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
+        s.crossOrigin = "anonymous";
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    const mermaid = window.mermaid;
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: "base",
+      fontFamily: "inherit",
+      // SVG-text labels measure against the actual rendered font, so shapes
+      // size correctly even when the web font finishes loading mid-render.
+      flowchart: { htmlLabels: false },
+      sequence: { htmlLabels: false },
+      class: { htmlLabels: false },
+      state: { htmlLabels: false },
+      themeVariables: {
+        primaryColor: v("--pdf-accent-soft", "#f5f1ea"),
+        primaryTextColor: v("--pdf-ink", "#1c1c1c"),
+        primaryBorderColor: v("--pdf-accent", "#7b4a1f"),
+        lineColor: v("--pdf-muted", "#6b6b6b"),
+        secondaryColor: v("--pdf-accent-soft", "#f0ece5"),
+        tertiaryColor: v("--pdf-accent-soft", "#f5f1ea"),
+        background: v("--paper", "#ffffff"),
+        fontSize: "13px",
+      },
+    });
+    const swapToFallback = (wrapper, source) => {
+      const fallback = document.createElement("div");
+      fallback.className = "md-mermaid md-mermaid-error";
+      const pre = document.createElement("pre");
+      const c = document.createElement("code");
+      c.textContent = source;
+      pre.appendChild(c);
+      const note = document.createElement("p");
+      note.className = "md-mermaid-error-note";
+      note.textContent = "Diagram couldn't render — showing source.";
+      fallback.appendChild(pre);
+      fallback.appendChild(note);
+      wrapper.replaceWith(fallback);
+    };
+    await Promise.all(mermaidBlocks.map(async (code, i) => {
+      const wrapper = code.closest("pre");
+      if (!wrapper) return;
+      const source = code.textContent || "";
+      // Validate before render — mermaid.render() leaks a "Syntax error in
+      // text" SVG into the document on failure even with strict security,
+      // and that bomb icon would ship in the PDF. parse() with suppressErrors
+      // gives us a clean boolean instead.
+      const isValid = await mermaid.parse(source, { suppressErrors: true });
+      if (!isValid) {
+        swapToFallback(wrapper, source);
+        return;
+      }
+      try {
+        const { svg } = await mermaid.render("md2pdf-mermaid-" + i, source);
+        const div = document.createElement("div");
+        div.className = "md-mermaid";
+        div.setAttribute("role", "img");
+        div.setAttribute("aria-label", "Diagram");
+        div.innerHTML = svg;
+        wrapper.replaceWith(div);
+      } catch (err) {
+        swapToFallback(wrapper, source);
+      }
+    }));
+    // Belt-and-braces: scrub any orphan mermaid bomb the renderer may have
+    // attached to <body>, regardless of whether parse() caught the error.
+    document.querySelectorAll('body > [id^="dmermaid-"], body > [id^="md2pdf-mermaid-"]').forEach((node) => node.remove());
+  }
+
+  // Images — by the time this script runs, networkidle0 has already settled,
+  // so most images are already complete (either loaded or failed). Handle
+  // both synchronously; only register listeners for in-flight images.
+  const swapBroken = (img) => {
+    const span = document.createElement("span");
+    span.className = "md-image-broken";
+    span.textContent = "Image: " + (img.alt || "untitled");
+    img.replaceWith(span);
+  };
+  const images = Array.from(document.images);
+  await Promise.all(images.map((img) => {
+    if (img.complete) {
+      if (img.naturalWidth === 0) swapBroken(img);
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      img.addEventListener("load", () => resolve(undefined), { once: true });
+      img.addEventListener("error", () => {
+        swapBroken(img);
+        resolve(undefined);
+      }, { once: true });
+    });
+  }));
+
+  // Webfonts — include after image swaps so any fallback text picks up the
+  // typeset font, not the metric-matched fallback.
+  if (document.fonts && document.fonts.ready) {
+    await document.fonts.ready;
+  }
+})();
+`;
 
 export async function POST(request: Request) {
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
@@ -109,16 +259,13 @@ export async function POST(request: Request) {
 
     const page = await browser.newPage();
     await page.setContent(documentHtml, { waitUntil: "networkidle0" });
-    /* Webfonts: networkidle0 fires when CSS lands but before the woff2 binaries
-       fully render. Wait on document.fonts.ready so the PDF captures the typeset
-       text, not the metric-matched fallback. */
-    await page.evaluate(() => document.fonts.ready);
+    /* Render mermaid + finalize image lifecycle + wait for fonts. The script
+       resolves once all three have settled; only then do we capture the PDF. */
+    await page.evaluate(POST_RENDER_SCRIPT);
     await page.emulateMediaType("print");
 
     const pdf = await page.pdf({
       printBackground: true,
-      /* Chrome (header/footer) and page margins are owned by CSS @page rules
-         inside the document HTML. preferCSSPageSize lets them through. */
       preferCSSPageSize: true,
     });
     const body = pdf.buffer.slice(
