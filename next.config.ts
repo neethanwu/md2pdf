@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-/* Deployed under hub.rewired.mx/md2pdf via a Cloudflare Worker that
+/* Deployed under labs.rewired.mx/md2pdf via a Cloudflare Worker that
    reverse-proxies /md2pdf/* to this Vercel project. basePath shifts every
    route, asset, and API endpoint under the prefix so the proxied URLs match
    what the Worker forwards. NEXT_PUBLIC_BASE_PATH mirrors the value to the

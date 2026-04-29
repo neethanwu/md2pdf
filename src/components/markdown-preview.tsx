@@ -298,19 +298,18 @@ export function MarkdownPreview({
     const stack = stackRef.current;
     if (!scaler || !stack) return;
 
-    const PAGE_W = 760;
-
+    /* CSS owns the scale (container query in .page-stack-scaler), so JS
+       only needs to publish the unscaled stack height. CSS multiplies by
+       the scale to reserve the right visual height. This removes the
+       first-paint snap that was visible as the chrome "re-positioning"
+       into place — scale is correct from the very first style resolution. */
     const apply = () => {
-      const available = scaler.clientWidth;
-      if (available <= 0) return;
-      const scale = Math.min(1, available / PAGE_W);
       const naturalH = stack.scrollHeight;
-      scaler.style.setProperty("--preview-scale", String(scale));
-      scaler.style.setProperty("--preview-stack-h", `${naturalH * scale}px`);
+      if (naturalH <= 0) return;
+      scaler.style.setProperty("--preview-stack-natural-h", `${naturalH}px`);
     };
 
     const observer = new ResizeObserver(apply);
-    observer.observe(scaler);
     observer.observe(stack);
     apply();
     return () => observer.disconnect();
@@ -351,7 +350,12 @@ export function MarkdownPreview({
   );
 
   return (
-    <div className="page-stack-scaler" ref={scalerRef}>
+    /* data-page-size keys CSS to a sensible single-page natural-h on first
+       paint (see globals.css). After mount, JS setProperty updates the inline
+       --preview-stack-natural-h to the measured stack height. Inline style
+       beats data-attribute rules, so the measured value wins once available
+       — and the seed is correct for the empty-doc first render. */
+    <div className="page-stack-scaler" ref={scalerRef} data-page-size={pageSize}>
       <div className="page-stack" ref={stackRef}>
         {pages.map((page) => {
           const isFirst = page.index === 0;

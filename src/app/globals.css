@@ -159,17 +159,37 @@
      Each `.paper` is exactly one page tall and shows a clipped slice
      of the rendered content via translateY(-i * bodyHeight).
   */
-  /* Outer scaler reserves the SCALED visual height (set by JS after
-     measuring the container) and clips the unscaled layout overflow that
-     transform: scale leaves behind. --preview-scale and --preview-stack-h
-     are set by JS based on the container width and total stack height. */
+  /* Outer scaler reserves the SCALED visual height and clips the unscaled
+     layout overflow that transform: scale leaves behind.
+
+     --preview-scale is computed in CSS via a container query so it applies
+     on first paint, not after a post-mount JS measure. JS only sets
+     --preview-stack-natural-h (the unscaled stack height); CSS multiplies
+     it by the scale to reserve the right amount of visual space. The
+     fallback (1075px = single A4 page) keeps the wrapper sized sensibly
+     before JS hydrates, and matches the inline style we set per pageSize. */
   .page-stack-scaler {
+    container-type: inline-size;
+    --preview-scale: min(1, calc(100cqi / 760px));
+    /* Seed the natural-h to a single page of the active size so the wrapper
+       reserves the right visual height on first paint. JS setProperty later
+       updates this to the measured stack height when content paginates past
+       one page; inline style beats this rule, so the measured value wins. */
+    --preview-stack-natural-h: 1075px; /* A4 single page */
     width: 100%;
-    height: var(--preview-stack-h, auto);
+    height: calc(var(--preview-stack-natural-h) * var(--preview-scale));
     display: flex;
     justify-content: center;
     align-items: flex-start;
     overflow: hidden;
+  }
+
+  .page-stack-scaler[data-page-size="Letter"] {
+    --preview-stack-natural-h: 984px;
+  }
+
+  .page-stack-scaler[data-page-size="A4"] {
+    --preview-stack-natural-h: 1075px;
   }
 
   .page-stack {
