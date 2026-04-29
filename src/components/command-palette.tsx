@@ -2,7 +2,7 @@
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 export type Command = {
   id: string;
@@ -25,11 +25,6 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Reset query when palette closes so re-opening starts clean.
-  useEffect(() => {
-    if (!open) setQuery("");
-  }, [open]);
 
   // Filter commands by lowercase substring across label + keywords.
   const filtered = useMemo(() => {
@@ -54,31 +49,39 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
     return Array.from(map.entries());
   }, [filtered]);
 
-  // Reset cursor when filter changes.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: query change is the trigger
-  useEffect(() => {
-    setSelectedIdx(0);
-  }, [query]);
+  /* Clamp the cursor to the filtered list at read time instead of syncing
+     via useEffect. selectedIdx may drift past the list as the user types,
+     but the value we render and act on is always in range. */
+  const clampedIdx = Math.min(selectedIdx, Math.max(0, filtered.length - 1));
 
-  // Keep selected idx in bounds.
-  useEffect(() => {
-    if (selectedIdx > filtered.length - 1) {
-      setSelectedIdx(Math.max(0, filtered.length - 1));
+  /* Reset query at the source of the change — when the palette is closed —
+     rather than reacting to `open` via useEffect. Same for cursor reset on
+     query change: lift the side effect to the setter. */
+  function handleOpenChange(next: boolean) {
+    if (!next) {
+      setQuery("");
+      setSelectedIdx(0);
     }
-  }, [filtered, selectedIdx]);
+    onOpenChange(next);
+  }
+
+  function handleQueryChange(next: string) {
+    setQuery(next);
+    setSelectedIdx(0);
+  }
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIdx((i) => Math.min(filtered.length - 1, i + 1));
+      setSelectedIdx(Math.min(filtered.length - 1, clampedIdx + 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSelectedIdx((i) => Math.max(0, i - 1));
+      setSelectedIdx(Math.max(0, clampedIdx - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const cmd = filtered[selectedIdx];
+      const cmd = filtered[clampedIdx];
       if (cmd) {
-        onOpenChange(false);
+        handleOpenChange(false);
         // Defer so the close animation can start before the action fires.
         requestAnimationFrame(() => cmd.action());
       }
@@ -86,7 +89,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
   }
 
   return (
-    <DialogPrimitive.Root onOpenChange={onOpenChange} open={open}>
+    <DialogPrimitive.Root onOpenChange={handleOpenChange} open={open}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop className="cmdk-backdrop" />
         <DialogPrimitive.Popup
@@ -98,7 +101,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
           <input
             aria-label="Command search"
             className="cmdk-input"
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => handleQueryChange(e.target.value)}
             placeholder="Search commands…"
             ref={inputRef}
             type="text"
@@ -116,12 +119,12 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
                     const Icon = cmd.icon;
                     return (
                       <button
-                        aria-selected={flatIdx === selectedIdx}
+                        aria-selected={flatIdx === clampedIdx}
                         className="cmdk-item"
-                        data-selected={flatIdx === selectedIdx}
+                        data-selected={flatIdx === clampedIdx}
                         key={cmd.id}
                         onClick={() => {
-                          onOpenChange(false);
+                          handleOpenChange(false);
                           requestAnimationFrame(() => cmd.action());
                         }}
                         onMouseEnter={() => setSelectedIdx(flatIdx)}

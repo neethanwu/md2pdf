@@ -355,9 +355,9 @@ export function Md2PdfWorkspace() {
           description: `${activePreset.name} · ${pageSize}`,
         });
 
-        // Quiet sky pulse on the fidelity tag — closes the loop where the eye returns.
+        /* Quiet sky pulse on the fidelity tag — closes the loop where the eye
+           returns. Cleared on animationend so CSS owns the duration. */
         setPulseFidelity(true);
-        setTimeout(() => setPulseFidelity(false), 800);
       } catch (error) {
         clearStageTimers();
         toast.error("Export failed", {
@@ -409,19 +409,6 @@ export function Md2PdfWorkspace() {
       return next;
     });
   }, []);
-
-  // Clear the one-shot pulse and blur after their animation windows.
-  useEffect(() => {
-    if (!justActivatedPreset) return;
-    const id = window.setTimeout(() => setJustActivatedPreset(null), 620);
-    return () => window.clearTimeout(id);
-  }, [justActivatedPreset]);
-
-  useEffect(() => {
-    if (!presetSwitching) return;
-    const id = window.setTimeout(() => setPresetSwitching(false), 240);
-    return () => window.clearTimeout(id);
-  }, [presetSwitching]);
 
   function openTitleEdit() {
     setSettingsOpen(true);
@@ -907,6 +894,16 @@ export function Md2PdfWorkspace() {
                           className="preset-chip"
                           data-active={preset === p.id}
                           data-just-activated={justActivatedPreset === p.id}
+                          onAnimationEnd={(e) => {
+                            /* Clear the one-shot glow when its keyframe ends.
+                               CSS owns the 600ms duration; we just react. */
+                            if (
+                              e.animationName === "chip-activate" &&
+                              justActivatedPreset === p.id
+                            ) {
+                              setJustActivatedPreset(null);
+                            }
+                          }}
                           onClick={() => pickPreset(p.id)}
                           type="button"
                         >
@@ -940,6 +937,7 @@ export function Md2PdfWorkspace() {
                   chromeTitle={chrome.title || inferredTitle}
                   footerNote={chrome.footerNote}
                   markdown={markdown || "# Untitled document"}
+                  onSwitchingDone={() => setPresetSwitching(false)}
                   pageSize={pageSize}
                   preset={preset}
                   showDate={chrome.date}
@@ -967,6 +965,13 @@ export function Md2PdfWorkspace() {
                         aria-hidden
                         className="fidelity-tag-dot"
                         data-pulse={pulseFidelity}
+                        onAnimationEnd={(e) => {
+                          /* The dot also runs `fidelity-breath` infinitely;
+                             we only care about the one-shot pulse. */
+                          if (e.animationName === "fidelity-pulse") {
+                            setPulseFidelity(false);
+                          }
+                        }}
                       />
                       <span className="hidden sm:inline">Matches PDF</span>
                     </span>

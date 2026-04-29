@@ -186,6 +186,9 @@ type MarkdownPreviewProps = {
   footerNote?: string;
   /** True briefly after a preset switch — adds a whisper of blur to mask reflow. */
   switching?: boolean;
+  /** Fired when the switch-blur animation ends, so the parent can clear
+      the switching flag without duplicating the duration in JS. */
+  onSwitchingDone?: () => void;
 };
 
 const HEADING_TAGS = new Set(["H1", "H2", "H3", "H4", "H5", "H6"]);
@@ -251,6 +254,7 @@ export function MarkdownPreview({
   showPageNumbers,
   footerNote,
   switching = false,
+  onSwitchingDone,
 }: MarkdownPreviewProps) {
   const presetDefinition = getPreset(preset);
   const date = new Intl.DateTimeFormat("en", {
@@ -381,6 +385,15 @@ export function MarkdownPreview({
                   <div
                     className="document-content"
                     data-switching={switching || undefined}
+                    onAnimationEnd={(e) => {
+                      /* The switch-blur keyframe owns the timing — when it
+                         ends, tell the parent to clear the switching flag.
+                         Filter by name so unrelated animations on descendants
+                         (none today, but defensive) don't trip the handler. */
+                      if (e.animationName === "switch-blur") {
+                        onSwitchingDone?.();
+                      }
+                    }}
                     ref={isFirst ? contentRef : undefined}
                     style={
                       {
@@ -443,13 +456,16 @@ function ImageWithFallback({
   height?: ImageDim;
 }) {
   const [state, setState] = useState<ImageState>("loading");
+  const [prevSrc, setPrevSrc] = useState(src);
 
-  // Reset on src change so a swapped-in image re-runs the lifecycle instead of
-  // leaving the placeholder up.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: src drives the reset; the setter doesn't need to be in deps
-  useEffect(() => {
+  /* Calculate-during-render reset: a swapped-in image re-runs the lifecycle
+     synchronously without a useEffect round-trip. The schedule of re-renders
+     is identical to the effect-based version, but state is in sync with src
+     before the next paint. */
+  if (prevSrc !== src) {
+    setPrevSrc(src);
     setState("loading");
-  }, [src]);
+  }
 
   if (state === "broken") {
     return (

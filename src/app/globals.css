@@ -287,11 +287,11 @@
     position: relative;
     transform: translateY(calc(var(--page-offset, 0px) * -1));
     /* Subtle blur during preset switches masks heading/spacing reflow.
-       Toggled via data-switching from JS. */
+       The blur is a one-shot keyframe (see .document-content[data-switching])
+       so CSS owns the timing and JS only flips data-switching on; the
+       parent clears its state via onAnimationEnd. */
     filter: blur(0);
-    transition:
-      transform 320ms var(--ease-out),
-      filter 220ms var(--ease-out);
+    transition: transform 320ms var(--ease-out);
     /* Mask is in the element's local (untranslated) coordinate space, so it
        must cover [page-offset, page-offset + page-window] — not [0, page-window].
        Without the offset, pages after the first mask out their own slice and
@@ -315,7 +315,20 @@
   }
 
   .document-content[data-switching="true"] {
-    filter: blur(1px);
+    animation: switch-blur 440ms var(--ease-out);
+  }
+
+  /* Whisper of blur — peaks at midpoint, returns to rest. Approximates the
+     prior 220ms-rise + brief-plateau + 220ms-fall transition cycle, but as a
+     single keyframe so its duration is the source of truth. */
+  @keyframes switch-blur {
+    0%,
+    100% {
+      filter: blur(0);
+    }
+    50% {
+      filter: blur(1px);
+    }
   }
 
   /* Header / footer — no rule line, refined hierarchy. */
