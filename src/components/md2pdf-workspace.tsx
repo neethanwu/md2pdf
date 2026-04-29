@@ -6,13 +6,10 @@ import {
   FileTextIcon,
   KeyboardIcon,
   Loader2Icon,
-  MoonIcon,
   PencilIcon,
   SlidersHorizontalIcon,
-  SunIcon,
   UploadIcon,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
@@ -125,7 +122,6 @@ export function Md2PdfWorkspace() {
   const [view, setView] = useState<"edit" | "preview">("edit");
   const isMac = useIsMac();
   const modKey = isMac ? "⌘" : "Ctrl";
-  const { resolvedTheme, setTheme } = useTheme();
 
   // Pick the right default page size for the user once we have access to navigator.
   // SSR-safe: useState initialised to "Letter", then we adjust to "A4" if locale calls for it.
@@ -288,10 +284,6 @@ export function Md2PdfWorkspace() {
     });
   }, [markdown, applySample]);
 
-  const toggleTheme = useCallback(() => {
-    setTheme(resolvedTheme === "dark" ? "light" : "dark");
-  }, [resolvedTheme, setTheme]);
-
   // User-driven preset change. Triggers a one-shot chip glow and a brief
   // document-content blur to mask reflow. No-op when the preset is unchanged.
   const pickPreset = useCallback((next: PdfPreset) => {
@@ -333,8 +325,6 @@ export function Md2PdfWorkspace() {
   exportRef.current = exportPdf;
   const loadSampleRef = useRef(loadSample);
   loadSampleRef.current = loadSample;
-  const toggleThemeRef = useRef(toggleTheme);
-  toggleThemeRef.current = toggleTheme;
   const pickPresetRef = useRef(pickPreset);
   pickPresetRef.current = pickPreset;
 
@@ -363,12 +353,6 @@ export function Md2PdfWorkspace() {
       if (key === "k" && !e.shiftKey) {
         e.preventDefault();
         setPaletteOpen((v) => !v);
-        return;
-      }
-      // ⌘D toggles dark mode.
-      if (key === "d" && !e.shiftKey) {
-        e.preventDefault();
-        toggleThemeRef.current();
         return;
       }
       if (key === "e" && !e.shiftKey) {
@@ -500,15 +484,6 @@ export function Md2PdfWorkspace() {
         action: () => updateChrome({ footer: !chrome.footer }),
       },
       {
-        id: "toggle-theme",
-        label: resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode",
-        keywords: "theme appearance",
-        shortcut: [modKey, "D"],
-        group: "View",
-        icon: resolvedTheme === "dark" ? SunIcon : MoonIcon,
-        action: () => toggleThemeRef.current(),
-      },
-      {
         id: "settings",
         label: "Document settings",
         keywords: "options chrome header footer",
@@ -532,7 +507,6 @@ export function Md2PdfWorkspace() {
     chrome.header,
     modKey,
     recents,
-    resolvedTheme,
     updateChrome,
     loadRecent,
     pickPreset,
