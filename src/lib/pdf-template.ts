@@ -1,5 +1,6 @@
 import type { DocumentChrome, PageSize, PdfPreset } from "@/lib/document";
 import { escapeHtml } from "@/lib/markdown";
+import { getInlinedFontFaceCss } from "@/lib/pdf-fonts";
 
 type TemplateOptions = {
   html: string;
@@ -29,8 +30,8 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.18 0.022 65);
     --pdf-muted: oklch(0.46 0.025 65);
     --pdf-rule: oklch(0.86 0.014 65);
-    --pdf-heading: "Iowan Old Style", "Charter", "Palatino", Georgia, serif;
-    --pdf-body: "Hanken Grotesk", "Avenir Next", "SF Pro Text", system-ui, sans-serif;
+    --pdf-heading: "Source Serif 4 Variable", "Iowan Old Style", "Charter", Georgia, serif;
+    --pdf-body: "Hanken Grotesk Variable", "Avenir Next", "SF Pro Text", system-ui, sans-serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
     --pdf-line: 1.7;
     --pdf-measure: 64ch;
@@ -41,8 +42,8 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.16 0.018 250);
     --pdf-muted: oklch(0.45 0.024 250);
     --pdf-rule: oklch(0.84 0.018 250);
-    --pdf-heading: "Hanken Grotesk", "Aptos", "Segoe UI", system-ui, sans-serif;
-    --pdf-body: "Hanken Grotesk", "Aptos", "Segoe UI", system-ui, sans-serif;
+    --pdf-heading: "Hanken Grotesk Variable", "Aptos", "Segoe UI", system-ui, sans-serif;
+    --pdf-body: "Hanken Grotesk Variable", "Aptos", "Segoe UI", system-ui, sans-serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
     --pdf-line: 1.55;
     --pdf-measure: 72ch;
@@ -53,8 +54,8 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.17 0.018 158);
     --pdf-muted: oklch(0.45 0.022 158);
     --pdf-rule: oklch(0.85 0.014 158);
-    --pdf-heading: "Hanken Grotesk", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-    --pdf-body: "Hanken Grotesk", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --pdf-heading: "Hanken Grotesk Variable", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --pdf-body: "Hanken Grotesk Variable", "Avenir Next", "Segoe UI", system-ui, sans-serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
     --pdf-line: 1.62;
     --pdf-measure: 68ch;
@@ -65,8 +66,8 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.18 0.018 30);
     --pdf-muted: oklch(0.42 0.02 30);
     --pdf-rule: oklch(0.84 0.014 30);
-    --pdf-heading: "Libertinus Serif", "Iowan Old Style", "Charter", Georgia, serif;
-    --pdf-body: "Libertinus Serif", "Iowan Old Style", "Charter", Georgia, serif;
+    --pdf-heading: "Source Serif 4 Variable", "Iowan Old Style", "Charter", Georgia, serif;
+    --pdf-body: "Source Serif 4 Variable", "Iowan Old Style", "Charter", Georgia, serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
     --pdf-line: 1.78;
     --pdf-measure: 66ch;
@@ -424,12 +425,6 @@ export function buildPdfHtml({ html, preset, title, chrome, pageSize }: Template
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;650;700&display=swap"
-    rel="stylesheet"
-  />
   <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
@@ -437,6 +432,11 @@ export function buildPdfHtml({ html, preset, title, chrome, pageSize }: Template
     crossorigin="anonymous"
   />
   <style>
+    /* Fonts inlined as base64 data URIs — see lib/pdf-fonts.ts. Identical
+       bytes between browser preview (next/font/google self-hosted) and PDF
+       lambda, no runtime CDN dependency, no silent Google Fonts fallback. */
+    ${getInlinedFontFaceCss()}
+
     @page {
       size: ${pageSize};
       margin: ${margins.top} ${margins.x} ${margins.bottom} ${margins.x};${headerCss}${headerDateCss}${footerNoteCss}${pagesCss}

@@ -11,8 +11,13 @@
   --font-sans: var(--font-hanken-grotesk), "Söhne", "SF Pro Text", system-ui, sans-serif;
   --font-mono:
     var(--font-geist-mono), "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
-  /* Editorial serif stack — used by *some* PDF presets, never the product UI. */
-  --font-serif: "Iowan Old Style", "Charter", "Palatino", Georgia, serif;
+  /* Editorial serif stack — used by Editorial + Academic presets in the
+     preview. Source Serif 4 is self-hosted via next/font (see layout.tsx),
+     and the PDF lambda inlines the same font as base64 (see lib/pdf-fonts.ts)
+     so preview and export render the same glyphs in the same metrics.
+     System-font fallbacks remain as a safety net during the brief moment
+     before next/font's WOFF2 finishes loading. */
+  --font-serif: var(--font-source-serif), "Iowan Old Style", "Charter", "Palatino", Georgia, serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

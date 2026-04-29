@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
+    "@fontsource-variable/hanken-grotesk": "^5.2.8",
+    "@fontsource-variable/source-serif-4": "^5.2.9",
     "@sparticuz/chromium": "^147.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -19,7 +19,14 @@ const nextConfig: NextConfig = {
      statically, so Vercel's serverless bundle omits them and the route throws
      "input directory ... does not exist". Force-include them on the PDF route. */
   outputFileTracingIncludes: {
-    "/api/pdf": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+    "/api/pdf": [
+      "./node_modules/@sparticuz/chromium/bin/**/*",
+      /* lib/pdf-fonts.ts reads these WOFF2 blobs from disk via fs.readFileSync
+         to base64-inline them into the PDF HTML. NFT can't trace dynamic
+         readFileSync paths statically, so force-include them. */
+      "./node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-latin-wght-*.woff2",
+      "./node_modules/@fontsource-variable/hanken-grotesk/files/hanken-grotesk-latin-wght-*.woff2",
+    ],
   },
 };
 
