@@ -82,8 +82,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
       const cmd = filtered[clampedIdx];
       if (cmd) {
         handleOpenChange(false);
-        // Defer so the close animation can start before the action fires.
-        requestAnimationFrame(() => cmd.action());
+        cmd.action();
       }
     }
   }
@@ -125,7 +124,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
                         key={cmd.id}
                         onClick={() => {
                           handleOpenChange(false);
-                          requestAnimationFrame(() => cmd.action());
+                          cmd.action();
                         }}
                         onMouseEnter={() => setSelectedIdx(flatIdx)}
                         role="option"

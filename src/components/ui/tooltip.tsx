@@ -1,6 +1,7 @@
 "use client";
 
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 function TooltipProvider({
@@ -13,6 +14,12 @@ function TooltipProvider({
 
 const Tooltip = TooltipPrimitive.Root;
 const TooltipTrigger = TooltipPrimitive.Trigger;
+
+/* Module-scoped count of currently-mounted tooltip popups. When a new one
+   mounts and finds the count > 0, another popup is already on-screen — we
+   mark this one data-instant so it skips the enter animation. Linear/Vercel
+   pattern: the first tooltip is deliberate, every adjacent one is instant. */
+let openTooltipCount = 0;
 
 function TooltipContent({
   className,
@@ -27,6 +34,17 @@ function TooltipContent({
     TooltipPrimitive.Positioner.Props,
     "side" | "sideOffset" | "align" | "alignOffset"
   >) {
+  /* Snapshot the count synchronously during the first render so the attribute
+     is correct on first paint. The lazy initializer runs once per mount. */
+  const [instant] = useState(() => openTooltipCount > 0);
+
+  useEffect(() => {
+    openTooltipCount += 1;
+    return () => {
+      openTooltipCount -= 1;
+    };
+  }, []);
+
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Positioner
@@ -38,6 +56,7 @@ function TooltipContent({
       >
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
+          data-instant={instant ? "" : undefined}
           className={cn("tooltip-content", className)}
           {...props}
         >

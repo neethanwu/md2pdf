@@ -1480,9 +1480,15 @@
       0 1px 2px oklch(0 0 0 / 14%),
       0 4px 14px oklch(0 0 0 / 12%);
     pointer-events: none;
+    /* Asymmetric: enter at 140ms (deliberate), exit at 100ms (get out of the
+       way — the user has already moved on). */
     transition:
       opacity 140ms var(--ease-out),
       transform 140ms var(--ease-out);
+  }
+
+  .tooltip-content[data-ending-style] {
+    transition-duration: 100ms;
   }
 
   .tooltip-content[data-starting-style],
@@ -1491,6 +1497,9 @@
     transform: scale(0.94);
   }
 
+  /* When another tooltip is already open, snap to this one with no animation —
+     the perception of speed across a toolbar matters more than the polish on
+     any single tooltip. */
   .tooltip-content[data-instant] {
     transition-duration: 0ms;
   }
@@ -1644,6 +1653,10 @@
   }
 
   /* Command-palette / shortcuts dialog. */
+  /* Command palette is keyboard-triggered (⌘K) and fires hundreds of times per
+     session. Per Emil Kowalski's framework — and Raycast's behavior — the
+     optimal experience is no animation: the palette appears and disappears
+     instantly. Animation here would feel sluggish, not polished. */
   .cmdk-backdrop {
     position: fixed;
     inset: 0;
@@ -1651,12 +1664,6 @@
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
     z-index: 60;
-    transition: opacity 200ms var(--ease-out);
-  }
-
-  .cmdk-backdrop[data-starting-style],
-  .cmdk-backdrop[data-ending-style] {
-    opacity: 0;
   }
 
   .cmdk-popup {
@@ -1674,15 +1681,6 @@
       0 20px 60px oklch(0 0 0 / 24%);
     overflow: hidden;
     outline: none;
-    transition:
-      opacity 200ms var(--ease-out),
-      transform 200ms var(--ease-out);
-  }
-
-  .cmdk-popup[data-starting-style],
-  .cmdk-popup[data-ending-style] {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-6px) scale(0.985);
   }
 
   .cmdk-input {
@@ -1732,7 +1730,9 @@
     color: var(--foreground);
     cursor: pointer;
     user-select: none;
-    transition: background-color 120ms var(--ease-out);
+    /* Hover/selection color change isn't an entrance — `ease` reads as a
+       state crossfade, while `ease-out` would feel like the bg is "arriving". */
+    transition: background-color 120ms ease;
   }
 
   .cmdk-item[data-selected="true"] {
