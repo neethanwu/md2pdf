@@ -20,7 +20,11 @@
    document's content; Hangul-only Korean text falls cleanly to Noto Sans/
    Serif KR. */
 
-const CJK_FONTS_LINK_HREF = [
+/* Single source of truth for the Google Fonts URL. Used by:
+   - the lambda (CJK_FONTS_LINK below) when the markdown has CJK
+   - the workspace's conditional <link> (React 19 auto-hoists it to <head>)
+   so preview and export pull from the same set of woff2 chunks. */
+export const CJK_FONTS_HREF = [
   "https://fonts.googleapis.com/css2",
   "?family=Noto+Sans+SC:wght@400;500;700",
   "&family=Noto+Sans+TC:wght@400;500;700",
@@ -35,7 +39,7 @@ const CJK_FONTS_LINK_HREF = [
 
 export const CJK_FONTS_LINK = `<link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="${CJK_FONTS_LINK_HREF}" />`;
+<link rel="stylesheet" href="${CJK_FONTS_HREF}" />`;
 
 /* Detect whether the document needs CJK fonts loaded. Covers:
    - CJK Unified Ideographs (Han characters used by Chinese/Japanese/Korean)

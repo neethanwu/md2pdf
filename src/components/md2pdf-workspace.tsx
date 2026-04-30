@@ -36,6 +36,7 @@ import {
   presets,
   sampleMarkdown,
 } from "@/lib/document";
+import { CJK_FONTS_HREF, hasCJK } from "@/lib/pdf-cjk";
 
 type ChromeState = {
   header: boolean;
@@ -197,6 +198,17 @@ export function Md2PdfWorkspace() {
   const dragCounter = useRef(0);
 
   const inferredTitle = useMemo(() => inferTitle(markdown), [markdown]);
+
+  /* Detect CJK reactively so the Noto Sans/Serif CDN load only happens when
+     the user actually has CJK content in the editor or document title.
+     Latin-only sessions (the majority) skip the CSS fetch entirely. Once
+     loaded the browser caches it so adding more CJK content is free.
+     The dns-prefetch hints in layout.tsx pre-warm the CDN connection so
+     this lazy load lands faster when it does fire. */
+  const needsCjkFonts = useMemo(
+    () => hasCJK(`${markdown}\n${chrome.title}`),
+    [markdown, chrome.title],
+  );
   const activePreset = getPreset(preset);
   const wordCount = useMemo(
     () => markdown.trim().split(/\s+/).filter(Boolean).length,
@@ -656,6 +668,11 @@ export function Md2PdfWorkspace() {
 
   return (
     <TooltipProvider>
+      {/* React 19 hoists <link> to <head>. Rendered only when the markdown
+          (or document title) contains CJK characters, so Latin-only users
+          never pay the CSS fetch. Browser caches the response after first
+          load, so toggling content in/out of CJK doesn't refetch. */}
+      {needsCjkFonts ? <link rel="stylesheet" href={CJK_FONTS_HREF} /> : null}
       <main className="flex h-dvh flex-col bg-background text-foreground">
         {/* ———————————————————— Top bar — sticky on every viewport.
             Mobile is upgraded to a three-column grid in CSS so the view

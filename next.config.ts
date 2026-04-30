@@ -18,6 +18,23 @@ const nextConfig: NextConfig = {
      auto-externalizes the package, but file tracing can't see the binaries
      statically, so Vercel's serverless bundle omits them and the route throws
      "input directory ... does not exist". Force-include them on the PDF route. */
+  /* The app lives under /md2pdf via basePath. A bare `/` request returns 404
+     because nothing is mounted there, which spams dev logs and confuses anyone
+     who lands on the bare Vercel/localhost URL. Redirect to /md2pdf so both
+     dev (localhost:3000) and the bare Vercel URL just work. The Cloudflare
+     Worker proxy in production routes /md2pdf/* to this app, so this redirect
+     is harmless under the worker too. basePath: false makes the source `/`
+     match the absolute root rather than being basePath-prefixed. */
+  async redirects() {
+    return [
+      {
+        source: "/",
+        destination: "/md2pdf",
+        permanent: false,
+        basePath: false,
+      },
+    ];
+  },
   outputFileTracingIncludes: {
     "/api/pdf": [
       "./node_modules/@sparticuz/chromium/bin/**/*",

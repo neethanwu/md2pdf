@@ -48,17 +48,14 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Noto Sans/Serif CJK across SC + TC + JP + KR. Loaded via Google
-            Fonts <link> rather than next/font so the browser smart-subsets via
-            unicode-range at runtime — Latin-only sessions never download any
-            CJK woff2; Chinese-only sessions skip the JP/KR chunks; etc.
-            Mirrored in lib/pdf-cjk.ts so the PDF export uses identical fonts. */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Serif+JP:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;500;600;700&display=swap"
-        />
+        {/* DNS-prefetch hints for the CJK font CDN — cheap (a single DNS
+            resolution, no body) and pre-warms resolution so when the workspace
+            detects CJK and hoists the <link>, the actual CSS fetch is faster.
+            The full stylesheet <link> is rendered conditionally from the
+            workspace via React 19 hoisting — Latin-only sessions never load
+            it. See md2pdf-workspace.tsx and lib/pdf-cjk.ts. */}
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
       </head>
       <body className="flex min-h-full flex-col">
         <Providers>
