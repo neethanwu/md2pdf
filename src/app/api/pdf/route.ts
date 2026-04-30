@@ -11,7 +11,7 @@ import {
   type PdfRequest,
 } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
-import { hasCJK } from "@/lib/pdf-cjk";
+import { getCjkScripts } from "@/lib/pdf-cjk";
 import { hasMath } from "@/lib/pdf-katex";
 import { buildPdfHtml } from "@/lib/pdf-template";
 
@@ -178,6 +178,99 @@ const POST_RENDER_SCRIPT = `
   };
   const v = (name, fallback) => cssToHex(cs.getPropertyValue(name), fallback);
 
+  const withTimeout = (promise, ms, message) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        window.setTimeout(() => reject(new Error(message)), ms);
+      }),
+    ]);
+
+  const waitForStylesheet = (link) => {
+    if (link.sheet) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      link.addEventListener("load", () => resolve(undefined), { once: true });
+      link.addEventListener(
+        "error",
+        () => reject(new Error("CJK font stylesheet failed to load.")),
+        { once: true },
+      );
+    });
+  };
+
+  const waitForCjkFonts = async () => {
+    const cjkLinks = Array.from(
+      document.querySelectorAll('link[data-md2pdf-cjk-fonts]'),
+    );
+    if (cjkLinks.length === 0 || !document.fonts) return;
+
+    await withTimeout(
+      Promise.all(cjkLinks.map(waitForStylesheet)),
+      12000,
+      "CJK font stylesheet timed out.",
+    );
+
+    const text = document.body.innerText || "";
+    const hanProbe = (text.match(/[㐀-䶿一-鿿]/g) ?? []).slice(0, 80).join("") || "中文";
+    const kanaProbe = (text.match(/[぀-ゟ゠-ヿ]/g) ?? []).slice(0, 80).join("") || "にほんご";
+    const hangulProbe = (text.match(/[가-힯ᄀ-ᇿ㄰-㆏]/g) ?? []).slice(0, 80).join("") || "한국어";
+    const scriptData = new Set(
+      cjkLinks.flatMap((link) =>
+        (link.getAttribute("data-cjk-scripts") || "")
+          .split(",")
+          .map((script) => script.trim())
+          .filter(Boolean),
+      ),
+    );
+    const needsSerif = cjkLinks.some(
+      (link) => link.getAttribute("data-cjk-serif") === "true",
+    );
+    const scriptFamilies = [
+      ...(scriptData.has("han") ? [["SC", hanProbe]] : []),
+      ...(scriptData.has("kana") ? [["JP", kanaProbe]] : []),
+      ...(scriptData.has("hangul") ? [["KR", hangulProbe]] : []),
+    ];
+    const probes = scriptFamilies.flatMap(([script, probe]) => [
+      ["Noto Sans " + script, probe, ["400", "500", "700"]],
+      ...(needsSerif
+        ? [["Noto Serif " + script, probe, ["400", "600", "700"]]]
+        : []),
+    ]);
+
+    await withTimeout(
+      Promise.all(
+        probes.flatMap(([family, probe, weights]) =>
+          weights.map((weight) =>
+            document.fonts
+              .load(weight + ' 16px "' + family + '"', probe)
+              .catch(() => []),
+          ),
+        ),
+      ),
+      12000,
+      "CJK fonts timed out.",
+    );
+
+    if (document.fonts.ready) {
+      await withTimeout(document.fonts.ready, 12000, "CJK fonts timed out.");
+    }
+
+    const missing = probes.filter(
+      ([family, probe, weights]) =>
+        !weights.some((weight) =>
+          document.fonts.check(weight + ' 16px "' + family + '"', probe),
+        ),
+    );
+
+    if (missing.length > 0) {
+      throw new Error(
+        "CJK fonts failed to load: " + missing.map(([family]) => family).join(", "),
+      );
+    }
+  };
+
+  await waitForCjkFonts();
+
   // Mermaid — only load if there's at least one block.
   const mermaidBlocks = Array.from(document.querySelectorAll("pre > code.language-mermaid"));
   if (mermaidBlocks.length > 0) {
@@ -308,7 +401,7 @@ export async function POST(request: Request) {
        emit the Google Fonts <link> for CJK. */
     const cjkSource = `${payload.markdown}\n${payload.chrome.title ?? ""}`;
     const mathPresent = hasMath(payload.markdown);
-    const cjkPresent = hasCJK(cjkSource);
+    const cjkScripts = getCjkScripts(cjkSource);
     const mermaidPresent = hasMermaid(payload.markdown);
 
     /* Markdown processing and browser launch are independent — run them in
@@ -329,7 +422,7 @@ export async function POST(request: Request) {
       chrome: payload.chrome,
       pageSize: payload.pageSize,
       hasMath: mathPresent,
-      hasCJK: cjkPresent,
+      cjkScripts,
     });
 
     page = await browser.newPage();

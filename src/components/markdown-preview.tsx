@@ -11,6 +11,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkUnwrapImages from "remark-unwrap-images";
 import { getPreset, type PageSize, type PdfPreset } from "@/lib/document";
+import { getPreviewPresetStyle } from "@/lib/pdf-style-tokens";
 import { cn } from "@/lib/utils";
 
 /* The preview's sanitizer mirrors the server pipeline so KaTeX + figures +
@@ -192,7 +193,11 @@ type MarkdownPreviewProps = {
 };
 
 const HEADING_TAGS = new Set(["H1", "H2", "H3", "H4", "H5", "H6"]);
-const KEEP_TOGETHER_SELECTOR = "figure, .md-mermaid, .katex-display";
+const KEEP_TOGETHER_SELECTOR = "figure, .md-mermaid, .katex-display, pre, table";
+/* Chromium print layout rounds image/SVG heights slightly differently from
+   live DOM layout. A small guard keeps atomic blocks from fitting in preview
+   with a 1px margin only to be pushed by the exported PDF. */
+const PAGE_BREAK_SLOP_PX = 4;
 
 /**
  * Smart pagination — figure out where each page should start so that:
@@ -219,8 +224,10 @@ function computePageOffsets(content: HTMLElement, bodyH: number): number[] {
     const el = children[i];
     const top = el.offsetTop;
     const bottom = top + el.offsetHeight;
+    const isAtomic = el.matches?.(KEEP_TOGETHER_SELECTOR);
+    const pageBottom = currentPageStart + bodyH - (isAtomic ? PAGE_BREAK_SLOP_PX : 0);
 
-    if (bottom <= currentPageStart + bodyH) continue;
+    if (bottom <= pageBottom) continue;
     if (top <= currentPageStart) continue;
 
     let breakAt = top;
@@ -229,11 +236,11 @@ function computePageOffsets(content: HTMLElement, bodyH: number): number[] {
     if (prev && HEADING_TAGS.has(prev.tagName) && prev.offsetTop > currentPageStart) {
       breakAt = prev.offsetTop;
     }
-    // Atomic units (figures, mermaid, display math) shouldn't get sliced. If
-    // the element straddling the break is one of them, push the whole thing
-    // to the next page by breaking at its top — even if there's no heading.
-    if (el.matches?.(KEEP_TOGETHER_SELECTOR) && top > currentPageStart) {
-      breakAt = top;
+    // Atomic units (figures, mermaid, display math, code, tables) shouldn't
+    // get sliced. Break just before their top edge so subpixel clipping never
+    // leaves a one-pixel sliver on the previous page.
+    if (isAtomic && top > currentPageStart) {
+      breakAt = Math.max(currentPageStart, top - PAGE_BREAK_SLOP_PX);
     }
 
     offsets.push(breakAt);
@@ -257,6 +264,7 @@ export function MarkdownPreview({
   onSwitchingDone,
 }: MarkdownPreviewProps) {
   const presetDefinition = getPreset(preset);
+  const presetStyle = useMemo(() => getPreviewPresetStyle(preset), [preset]);
   const date = new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",
@@ -373,6 +381,7 @@ export function MarkdownPreview({
               )}
               data-size={pageSize}
               key={page.id}
+              style={presetStyle as React.CSSProperties}
             >
               {renderHeader ? (
                 <header className="document-chrome document-chrome-top">

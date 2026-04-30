@@ -15,7 +15,7 @@
   --font-sans:
     var(--font-hanken-grotesk), "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "Noto Sans KR", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Yu Gothic", "Söhne", "SF Pro Text", system-ui, sans-serif;
   --font-mono:
-    var(--font-geist-mono), "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
+    var(--font-geist-mono), "SFMono-Regular", "JetBrains Mono", Consolas, "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "Noto Sans KR", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Yu Gothic", monospace;
   /* Editorial serif stack — used by Editorial + Academic presets in the
      preview. Source Serif 4 is self-hosted via next/font (see layout.tsx),
      and the PDF lambda inlines the same font as base64 (see lib/pdf-fonts.ts)
@@ -471,7 +471,7 @@
        wide, so pt-to-px depends on the active physical page size:
        Letter: 760px / 8.5in / 72pt, A4: 760px / 210mm * 25.4mm / 72pt.
        Keep this page-size-aware or A4 preview grows too compact versus export. */
-    font-size: calc(var(--preview-pt, 1.24183px) * 11.5);
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-body-size-pt, 11.5));
     line-height: var(--pdf-line);
   }
 
@@ -560,25 +560,25 @@
   .md-preview h4 {
     color: var(--pdf-ink);
     font-family: var(--pdf-heading);
-    line-height: 1.16;
+    line-height: 1.14;
   }
 
   /* Fixed font sizes — NEVER use vw/clamp inside the paper. The paper renders
      at true paper dimensions and must paginate identically across viewports
      and exactly match the exported PDF. */
   .md-preview h1 {
-    margin: 0 0 calc(var(--preview-pt, 1.24183px) * 22);
-    font-size: calc(var(--preview-pt, 1.24183px) * 30);
+    margin: 0 0 calc(var(--preview-pt, 1.24183px) * var(--pdf-h1-mb-pt, 22));
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-h1-size-pt, 30));
     font-weight: 650;
     letter-spacing: -0.02em;
   }
 
   .md-preview h2 {
-    margin: calc(var(--preview-pt, 1.24183px) * 32) 0
-      calc(var(--preview-pt, 1.24183px) * 10);
-    padding-top: calc(var(--preview-pt, 1.24183px) * 14);
+    margin: calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-mt-pt, 32)) 0
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-mb-pt, 10));
+    padding-top: calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-pt-pt, 14));
     border-top: 1px solid var(--pdf-rule);
-    font-size: calc(var(--preview-pt, 1.24183px) * 17);
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-size-pt, 17));
     font-weight: 650;
     letter-spacing: -0.005em;
   }
@@ -592,9 +592,9 @@
   }
 
   .md-preview h3 {
-    margin: calc(var(--preview-pt, 1.24183px) * 22) 0
-      calc(var(--preview-pt, 1.24183px) * 6);
-    font-size: calc(var(--preview-pt, 1.24183px) * 13);
+    margin: calc(var(--preview-pt, 1.24183px) * var(--pdf-h3-mt-pt, 22)) 0
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-h3-mb-pt, 6));
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-h3-size-pt, 13));
     font-weight: 700;
   }
 
@@ -615,7 +615,7 @@
   .md-preview blockquote,
   .md-preview table,
   .md-preview pre {
-    margin: 0 0 calc(var(--preview-pt, 1.24183px) * 12);
+    margin: 0 0 calc(var(--preview-pt, 1.24183px) * var(--pdf-block-mb-pt, 12));
   }
 
   .md-preview p,
@@ -625,7 +625,7 @@
 
   .md-preview ul,
   .md-preview ol {
-    padding-left: calc(var(--preview-pt, 1.24183px) * 20);
+    padding-left: calc(var(--preview-pt, 1.24183px) * var(--pdf-list-pl-pt, 20));
   }
 
   .md-preview ul {
@@ -658,20 +658,20 @@
   }
 
   .md-preview li {
-    padding-left: 4px;
+    padding-left: 0;
   }
 
   .md-preview li + li {
-    margin-top: calc(var(--preview-pt, 1.24183px) * 3);
+    margin-top: calc(var(--preview-pt, 1.24183px) * var(--pdf-li-mt-pt, 3));
   }
 
   .md-preview li > p {
-    margin: 0 0 8px;
+    margin: 0 0 calc(var(--preview-pt, 1.24183px) * 6);
   }
 
   .md-preview li > ul,
   .md-preview li > ol {
-    margin: 6px 0 6px;
+    margin: calc(var(--preview-pt, 1.24183px) * 5) 0;
   }
 
   .md-preview a {
@@ -682,15 +682,15 @@
 
   .md-preview hr {
     height: 1px;
-    margin: 28px 0;
+    margin: calc(var(--preview-pt, 1.24183px) * 24) 0;
     border: 0;
     background: var(--pdf-rule);
   }
 
   .md-preview blockquote {
-    margin: calc(var(--preview-pt, 1.24183px) * 16) 0;
-    padding: calc(var(--preview-pt, 1.24183px) * 9)
-      calc(var(--preview-pt, 1.24183px) * 14);
+    margin: calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-my-pt, 16)) 0;
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-py-pt, 9))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-px-pt, 14));
     border-left: 2px solid var(--pdf-accent);
     background: color-mix(in oklch, var(--pdf-accent-soft) 60%, transparent);
     color: var(--pdf-muted);
@@ -712,25 +712,26 @@
 
   .md-preview pre {
     overflow: auto;
-    border-radius: 6px;
+    border-radius: calc(var(--preview-pt, 1.24183px) * var(--pdf-pre-radius-pt, 6));
     background: oklch(0.18 0.018 250);
     color: oklch(0.95 0.008 250);
-    padding: calc(var(--preview-pt, 1.24183px) * 12)
-      calc(var(--preview-pt, 1.24183px) * 14);
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-pre-py-pt, 12))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-pre-px-pt, 14))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-pre-pb-pt, 12));
   }
 
   .md-preview pre code {
     background: transparent;
     color: inherit;
     padding: 0;
-    font-size: calc(var(--preview-pt, 1.24183px) * 9.5);
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-pre-code-size-pt, 9.5));
     line-height: 1.62;
   }
 
   .md-preview table {
     width: 100%;
     border-collapse: collapse;
-    font-size: calc(var(--preview-pt, 1.24183px) * 10.2);
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-table-size-pt, 10.2));
   }
 
   .md-preview th {
@@ -742,8 +743,9 @@
   .md-preview th,
   .md-preview td {
     border-bottom: 1px solid var(--pdf-rule);
-    padding: calc(var(--preview-pt, 1.24183px) * 7) calc(var(--preview-pt, 1.24183px) * 8)
-      calc(var(--preview-pt, 1.24183px) * 7) 0;
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-py-pt, 7))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-px-pt, 8))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-py-pt, 7)) 0;
     vertical-align: top;
   }
 
@@ -783,7 +785,7 @@
   /* Figures — atomic units. Center the image, italicize the caption, keep
      the pair page-break-safe via the pagination's keep-together selector. */
   .md-preview figure.md-image-figure {
-    margin: calc(var(--preview-pt, 1.24183px) * 18) auto;
+    margin: calc(var(--preview-pt, 1.24183px) * var(--pdf-figure-my-pt, 18)) auto;
     padding: 0;
     text-align: center;
     max-width: 100%;
@@ -794,10 +796,10 @@
   }
 
   .md-preview figure.md-image-figure figcaption {
-    font-size: calc(var(--preview-pt, 1.24183px) * 9.5);
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-caption-size-pt, 9.5));
     color: var(--pdf-muted);
     font-style: italic;
-    margin-top: calc(var(--preview-pt, 1.24183px) * 6);
+    margin-top: calc(var(--preview-pt, 1.24183px) * var(--pdf-caption-mt-pt, 6));
     line-height: 1.45;
     max-width: 56ch;
     margin-left: auto;
@@ -807,9 +809,9 @@
   /* Broken image fallback — calm, in-flow, never a missing-glyph icon. */
   .md-preview .md-image-broken {
     display: inline-block;
-    padding: 4px 10px;
+    padding: calc(var(--preview-pt, 1.24183px) * 4) calc(var(--preview-pt, 1.24183px) * 8);
     border: 1px dashed var(--pdf-rule);
-    border-radius: 3px;
+    border-radius: calc(var(--preview-pt, 1.24183px) * 2);
     color: var(--pdf-muted);
     font-style: italic;
     font-size: 0.92em;
@@ -825,7 +827,7 @@
   }
 
   .md-preview .katex-display {
-    margin: calc(var(--preview-pt, 1.24183px) * 14) 0;
+    margin: calc(var(--preview-pt, 1.24183px) * var(--pdf-math-my-pt, 14)) 0;
     overflow-x: auto;
     overflow-y: hidden;
   }
@@ -840,7 +842,7 @@
      gets thin top/bottom rules to suggest "figure".
   */
   .md-preview .md-mermaid {
-    margin: calc(var(--preview-pt, 1.24183px) * 18) auto;
+    margin: calc(var(--preview-pt, 1.24183px) * var(--pdf-mermaid-my-pt, 18)) auto;
     text-align: center;
     max-width: 100%;
     min-height: 80px;
@@ -898,8 +900,8 @@
   .preset-academic figure.md-image-figure {
     border-top: 1px solid var(--pdf-rule);
     border-bottom: 1px solid var(--pdf-rule);
-    padding: calc(var(--preview-pt, 1.24183px) * 12) 0
-      calc(var(--preview-pt, 1.24183px) * 10);
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-figure-py-pt, 12)) 0
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-figure-pb-pt, 10));
   }
 
   /* —————————————————————————————————————————————————————————————
@@ -929,11 +931,11 @@
   /* Editorial — refined publishing rhythm */
   .preset-editorial h1 {
     font-weight: 600;
-    margin-bottom: calc(var(--preview-pt, 1.24183px) * 26);
+    margin-bottom: calc(var(--preview-pt, 1.24183px) * var(--pdf-h1-mb-pt, 26));
   }
   .preset-editorial h2 {
-    margin-top: calc(var(--preview-pt, 1.24183px) * 48);
-    padding-top: calc(var(--preview-pt, 1.24183px) * 18);
+    margin-top: calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-mt-pt, 48));
+    padding-top: calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-pt-pt, 18));
   }
   .preset-editorial h3 {
     font-style: italic;
@@ -962,9 +964,10 @@
   .preset-editorial blockquote {
     background: transparent;
     border-left: 2px solid var(--pdf-accent);
-    padding: calc(var(--preview-pt, 1.24183px) * 6) 0
-      calc(var(--preview-pt, 1.24183px) * 6) calc(var(--preview-pt, 1.24183px) * 18);
-    margin: calc(var(--preview-pt, 1.24183px) * 18) 0;
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-py-pt, 6)) 0
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-py-pt, 6))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-px-pt, 18));
+    margin: calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-my-pt, 18)) 0;
     border-radius: 0;
     font-style: italic;
     color: var(--pdf-ink);
@@ -983,59 +986,42 @@
   .preset-technical h1 {
     font-weight: 700;
     letter-spacing: -0.022em;
-    font-size: 2rem; /* doc-title scale, not display */
-    margin: 0 0 6px;
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-h1-size-pt, 26));
+    margin: 0 0 calc(var(--preview-pt, 1.24183px) * var(--pdf-h1-mb-pt, 4));
   }
   /* Lede after H1 acts as doc subtitle */
   .preset-technical h1 + p {
     color: var(--pdf-muted);
     font-size: 0.96em;
-    padding-bottom: 18px;
-    margin-bottom: 28px;
+    padding-bottom: calc(var(--preview-pt, 1.24183px) * 14);
+    margin-bottom: calc(var(--preview-pt, 1.24183px) * 22);
     border-bottom: 1px solid var(--pdf-rule);
   }
   .preset-technical h2 {
     border-top: 0;
-    border-left: 2px solid var(--pdf-accent);
-    padding: 0 0 0 14px;
-    margin: 32px 0 10px;
-    font-size: 1.18rem;
+    border-left: calc(var(--preview-pt, 1.24183px) * 2) solid var(--pdf-accent);
+    padding: 0 0 0 calc(var(--preview-pt, 1.24183px) * 11);
+    margin: calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-mt-pt, 26)) 0
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-mb-pt, 8));
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-size-pt, 14));
     font-weight: 700;
     color: var(--pdf-ink);
     letter-spacing: -0.005em;
   }
   .preset-technical h3 {
     color: var(--pdf-accent);
-    font-size: 0.78rem;
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-h3-size-pt, 9));
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 700;
-    margin: 22px 0 6px;
   }
-  /* Code blocks — language label as a tiny chrome bar */
   .preset-technical pre {
     background: oklch(0.16 0.02 248);
     border: 0;
-    border-radius: 8px;
-    padding: 18px 18px 16px;
-    position: relative;
-    margin-top: 22px;
-  }
-  .preset-technical pre code[class*="language-"]::before,
-  .preset-technical pre[data-lang]::before {
-    content: attr(data-lang);
-    position: absolute;
-    top: -10px;
-    left: 14px;
-    background: var(--pdf-accent);
-    color: oklch(0.99 0 0);
-    font-family: var(--pdf-mono);
-    font-size: 9px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    padding: 3px 8px;
-    border-radius: 3px;
+    border-radius: calc(var(--preview-pt, 1.24183px) * var(--pdf-pre-radius-pt, 6));
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-pre-py-pt, 14))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-pre-px-pt, 14))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-pre-pb-pt, 12));
   }
   .preset-technical code {
     background: color-mix(in oklch, var(--pdf-accent) 14%, transparent);
@@ -1054,8 +1040,10 @@
     font-size: 0.86em;
   }
   .preset-technical th {
-    border-bottom: 2px solid var(--pdf-accent);
-    padding: 7px 12px 7px 0;
+    border-bottom: calc(var(--preview-pt, 1.24183px) * 2) solid var(--pdf-accent);
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-py-pt, 6))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-px-pt, 10))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-py-pt, 6)) 0;
     text-transform: uppercase;
     font-size: 0.86em;
     letter-spacing: 0.06em;
@@ -1063,7 +1051,9 @@
     font-weight: 700;
   }
   .preset-technical td {
-    padding: 7px 12px 7px 0;
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-py-pt, 6))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-px-pt, 10))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-py-pt, 6)) 0;
   }
   .preset-technical tr:nth-child(even) td {
     background: color-mix(in oklch, var(--pdf-accent) 6%, transparent);
@@ -1076,7 +1066,7 @@
   /* Tighter lists for documentation density */
   .preset-technical ul,
   .preset-technical ol {
-    padding-left: 22px;
+    padding-left: calc(var(--preview-pt, 1.24183px) * var(--pdf-list-pl-pt, 18));
   }
   .preset-technical ul {
     list-style: none;
@@ -1088,20 +1078,22 @@
   .preset-technical ul > li::before {
     content: "›";
     position: absolute;
-    left: -16px;
+    left: calc(var(--preview-pt, 1.24183px) * -12);
     top: 0;
     color: var(--pdf-accent);
     font-weight: 700;
   }
   .preset-technical li + li {
-    margin-top: 4px;
+    margin-top: calc(var(--preview-pt, 1.24183px) * 3);
   }
   /* Blockquote as a callout note */
   .preset-technical blockquote {
     background: color-mix(in oklch, var(--pdf-accent) 6%, transparent);
-    border-left: 2px solid var(--pdf-accent);
-    border-radius: 0 4px 4px 0;
-    padding: 12px 18px;
+    border-left: calc(var(--preview-pt, 1.24183px) * 2) solid var(--pdf-accent);
+    border-radius: 0 calc(var(--preview-pt, 1.24183px) * 4)
+      calc(var(--preview-pt, 1.24183px) * 4) 0;
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-py-pt, 10))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-px-pt, 14));
     color: var(--pdf-ink);
     font-size: 0.96em;
   }
@@ -1113,27 +1105,28 @@
   .preset-business h1 {
     font-weight: 700;
     letter-spacing: -0.03em;
-    font-size: 2.6rem;
-    margin: 0 0 8px;
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-h1-size-pt, 32));
+    margin: 0 0 calc(var(--preview-pt, 1.24183px) * var(--pdf-h1-mb-pt, 6));
   }
   /* Subtle baseline rule under H1 — finishes the title */
   .preset-business h1 + p {
     color: var(--pdf-muted);
-    padding-bottom: 22px;
+    padding-bottom: calc(var(--preview-pt, 1.24183px) * 16);
     border-bottom: 1px solid var(--pdf-rule);
-    margin-bottom: 32px;
+    margin-bottom: calc(var(--preview-pt, 1.24183px) * 26);
   }
   .preset-business h2 {
     counter-increment: section;
-    margin: 44px 0 14px;
+    margin: calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-mt-pt, 32)) 0
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-mb-pt, 11));
     padding: 0;
     border-top: 0;
-    font-size: 1.32rem;
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-size-pt, 16));
     font-weight: 700;
     letter-spacing: -0.012em;
     display: flex;
     align-items: baseline;
-    gap: 14px;
+    gap: calc(var(--preview-pt, 1.24183px) * 11);
   }
   .preset-business h2::before {
     content: counter(section, decimal-leading-zero);
@@ -1147,9 +1140,10 @@
   .preset-business h3 {
     font-weight: 700;
     color: var(--pdf-ink);
-    font-size: 1rem;
-    margin: 24px 0 6px;
-    padding-left: 14px;
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-h3-size-pt, 12));
+    margin: calc(var(--preview-pt, 1.24183px) * var(--pdf-h3-mt-pt, 20)) 0
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-h3-mb-pt, 5));
+    padding-left: calc(var(--preview-pt, 1.24183px) * 11);
     position: relative;
   }
   .preset-business h3::before {
@@ -1157,13 +1151,13 @@
     position: absolute;
     left: 0;
     top: 0.42em;
-    width: 6px;
-    height: 6px;
+    width: calc(var(--preview-pt, 1.24183px) * 5);
+    height: calc(var(--preview-pt, 1.24183px) * 5);
     background: var(--pdf-accent);
     border-radius: 1px;
   }
   .preset-business ol {
-    padding-left: 28px;
+    padding-left: calc(var(--preview-pt, 1.24183px) * 20);
   }
   .preset-business ol > li::marker {
     color: var(--pdf-accent);
@@ -1174,23 +1168,25 @@
   }
   .preset-business blockquote {
     background: color-mix(in oklch, var(--pdf-accent) 5%, transparent);
-    border-left: 3px solid var(--pdf-accent);
-    border-radius: 0 6px 6px 0;
+    border-left: calc(var(--preview-pt, 1.24183px) * 3) solid var(--pdf-accent);
+    border-radius: 0 calc(var(--preview-pt, 1.24183px) * 4)
+      calc(var(--preview-pt, 1.24183px) * 4) 0;
     color: var(--pdf-ink);
-    padding: 18px 24px;
-    margin: 22px 0;
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-py-pt, 14))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-px-pt, 18));
     font-weight: 500;
   }
   /* Full-grid tables — proposal report look */
   .preset-business table {
     border: 1px solid var(--pdf-rule);
-    border-radius: 4px;
+    border-radius: calc(var(--preview-pt, 1.24183px) * 4);
     overflow: hidden;
   }
   .preset-business th {
     background: color-mix(in oklch, var(--pdf-accent) 8%, transparent);
     color: var(--pdf-ink);
-    padding: 11px 14px;
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-py-pt, 8))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-px-pt, 11));
     font-size: 0.82em;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -1198,7 +1194,8 @@
     border-bottom: 1px solid var(--pdf-rule);
   }
   .preset-business td {
-    padding: 11px 14px;
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-py-pt, 8))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-cell-px-pt, 11));
     border-bottom: 1px solid var(--pdf-rule);
   }
   .preset-business tr:last-child td {
@@ -1220,13 +1217,13 @@
     text-align: center;
     font-style: italic;
     font-weight: 600;
-    margin: calc(var(--preview-pt, 1.24183px) * 28) 0
-      calc(var(--preview-pt, 1.24183px) * 10);
+    margin: calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-mt-pt, 28)) 0
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-mb-pt, 10));
     padding-top: 0;
-    font-size: calc(var(--preview-pt, 1.24183px) * 14);
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-h2-size-pt, 14));
   }
   .preset-academic h3 {
-    font-size: calc(var(--preview-pt, 1.24183px) * 12.5);
+    font-size: calc(var(--preview-pt, 1.24183px) * var(--pdf-h3-size-pt, 12.5));
     font-weight: 700;
   }
   .preset-academic p + p {
@@ -1237,8 +1234,8 @@
     border-left: 0;
     border-top: 1px solid var(--pdf-rule);
     border-bottom: 1px solid var(--pdf-rule);
-    padding: calc(var(--preview-pt, 1.24183px) * 14)
-      calc(var(--preview-pt, 1.24183px) * 22);
+    padding: calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-py-pt, 14))
+      calc(var(--preview-pt, 1.24183px) * var(--pdf-blockquote-px-pt, 22));
     background: transparent;
     border-radius: 0;
     text-align: justify;
