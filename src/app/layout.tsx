@@ -47,6 +47,19 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
     >
+      <head>
+        {/* Noto Sans/Serif CJK across SC + TC + JP + KR. Loaded via Google
+            Fonts <link> rather than next/font so the browser smart-subsets via
+            unicode-range at runtime — Latin-only sessions never download any
+            CJK woff2; Chinese-only sessions skip the JP/KR chunks; etc.
+            Mirrored in lib/pdf-cjk.ts so the PDF export uses identical fonts. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Serif+JP:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;500;600;700&display=swap"
+        />
+      </head>
       <body className="flex min-h-full flex-col">
         <Providers>
           {children}

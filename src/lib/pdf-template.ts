@@ -1,4 +1,9 @@
 import type { DocumentChrome, PageSize, PdfPreset } from "@/lib/document";
+import {
+  CJK_FONTS_LINK,
+  CJK_SANS_STACK,
+  CJK_SERIF_STACK,
+} from "@/lib/pdf-cjk";
 import { escapeHtml } from "@/lib/markdown";
 import { getInlinedFontFaceCss } from "@/lib/pdf-fonts";
 import { getInlinedKatexCss } from "@/lib/pdf-katex";
@@ -10,6 +15,7 @@ type TemplateOptions = {
   chrome: DocumentChrome;
   pageSize: PageSize;
   hasMath: boolean;
+  hasCJK: boolean;
 };
 
 /* Escape a string for use as a CSS string literal (inside `content: "..."`). */
@@ -25,6 +31,10 @@ function formatChromeDate() {
   }).format(new Date());
 }
 
+/* CJK fonts insert between the Latin family and the Latin system fallbacks
+   in each preset's stack. Browsers and Chromium fall through the stack
+   per-glyph: ASCII goes to the Latin font, Han/kana/Hangul falls to the
+   matching Noto font. See lib/pdf-cjk.ts for the specific families. */
 const presetCss: Record<PdfPreset, string> = {
   editorial: `
     --pdf-accent: oklch(0.45 0.08 60);
@@ -32,8 +42,8 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.18 0.022 65);
     --pdf-muted: oklch(0.46 0.025 65);
     --pdf-rule: oklch(0.86 0.014 65);
-    --pdf-heading: "Source Serif 4 Variable", "Iowan Old Style", "Charter", Georgia, serif;
-    --pdf-body: "Hanken Grotesk Variable", "Avenir Next", "SF Pro Text", system-ui, sans-serif;
+    --pdf-heading: "Source Serif 4 Variable", ${CJK_SERIF_STACK}, "Iowan Old Style", "Charter", Georgia, serif;
+    --pdf-body: "Hanken Grotesk Variable", ${CJK_SANS_STACK}, "Avenir Next", "SF Pro Text", system-ui, sans-serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
     --pdf-line: 1.7;
     --pdf-measure: 64ch;
@@ -44,8 +54,8 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.16 0.018 250);
     --pdf-muted: oklch(0.45 0.024 250);
     --pdf-rule: oklch(0.84 0.018 250);
-    --pdf-heading: "Hanken Grotesk Variable", "Aptos", "Segoe UI", system-ui, sans-serif;
-    --pdf-body: "Hanken Grotesk Variable", "Aptos", "Segoe UI", system-ui, sans-serif;
+    --pdf-heading: "Hanken Grotesk Variable", ${CJK_SANS_STACK}, "Aptos", "Segoe UI", system-ui, sans-serif;
+    --pdf-body: "Hanken Grotesk Variable", ${CJK_SANS_STACK}, "Aptos", "Segoe UI", system-ui, sans-serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
     --pdf-line: 1.55;
     --pdf-measure: 72ch;
@@ -56,8 +66,8 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.17 0.018 158);
     --pdf-muted: oklch(0.45 0.022 158);
     --pdf-rule: oklch(0.85 0.014 158);
-    --pdf-heading: "Hanken Grotesk Variable", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-    --pdf-body: "Hanken Grotesk Variable", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --pdf-heading: "Hanken Grotesk Variable", ${CJK_SANS_STACK}, "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --pdf-body: "Hanken Grotesk Variable", ${CJK_SANS_STACK}, "Avenir Next", "Segoe UI", system-ui, sans-serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
     --pdf-line: 1.62;
     --pdf-measure: 68ch;
@@ -68,8 +78,8 @@ const presetCss: Record<PdfPreset, string> = {
     --pdf-ink: oklch(0.18 0.018 30);
     --pdf-muted: oklch(0.42 0.02 30);
     --pdf-rule: oklch(0.84 0.014 30);
-    --pdf-heading: "Source Serif 4 Variable", "Iowan Old Style", "Charter", Georgia, serif;
-    --pdf-body: "Source Serif 4 Variable", "Iowan Old Style", "Charter", Georgia, serif;
+    --pdf-heading: "Source Serif 4 Variable", ${CJK_SERIF_STACK}, "Iowan Old Style", "Charter", Georgia, serif;
+    --pdf-body: "Source Serif 4 Variable", ${CJK_SERIF_STACK}, "Iowan Old Style", "Charter", Georgia, serif;
     --pdf-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
     --pdf-line: 1.78;
     --pdf-measure: 66ch;
@@ -329,6 +339,7 @@ export function buildPdfHtml({
   chrome,
   pageSize,
   hasMath,
+  hasCJK,
 }: TemplateOptions) {
   /* Chrome content via CSS @page margin boxes — Chromium renders these at the
      document's actual scale with full CSS support, unlike puppeteer's headerTemplate
@@ -433,12 +444,30 @@ export function buildPdfHtml({
      and the prior CDN round trip. */
   const katexCss = hasMath ? getInlinedKatexCss() : "";
 
+  /* CJK fonts ride on Google Fonts CDN since inlining all four scripts
+     × multiple weights would mean tens of MB per export. Only emitted when
+     the document actually contains CJK characters — Latin-only docs stay
+     fully self-contained. See lib/pdf-cjk.ts for the rationale. */
+  const cjkLink = hasCJK ? CJK_FONTS_LINK : "";
+
+  /* Serif presets pair Source Serif 4 (x-height ratio ~0.50) with Noto Serif
+     CJK families (~0.55 by default). Without normalization, Chinese paragraphs
+     read ~10% taller than the surrounding English. font-size-adjust forces
+     all fonts in the stack to render with a uniform x-height ratio so cross-
+     script lines sit on the same visual baseline. Sans presets are paired
+     with fonts of similar natural ratio so we leave them alone. */
+  const serifSizeAdjust =
+    preset === "editorial" || preset === "academic"
+      ? "font-size-adjust: 0.5;"
+      : "";
+
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
+  ${cjkLink}
   <style>
     /* Fonts inlined as base64 data URIs — see lib/pdf-fonts.ts. Identical
        bytes between browser preview (next/font/google self-hosted) and PDF
@@ -461,6 +490,7 @@ export function buildPdfHtml({
       line-height: var(--pdf-line);
       text-rendering: geometricPrecision;
       -webkit-font-smoothing: antialiased;
+      ${serifSizeAdjust}
     }
     main {
       margin: 0;

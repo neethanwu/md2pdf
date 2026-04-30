@@ -9,6 +9,7 @@ import {
   type PdfRequest,
 } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
+import { hasCJK } from "@/lib/pdf-cjk";
 import { hasMath } from "@/lib/pdf-katex";
 import { buildPdfHtml } from "@/lib/pdf-template";
 
@@ -286,7 +287,12 @@ export async function POST(request: Request) {
   try {
     const payload = parseRequest(await request.json());
     const title = payload.chrome.title?.trim() || inferTitle(payload.markdown);
+    /* Inspect the markdown content + the user-provided chrome title (which
+       can carry CJK independently of the body). Both feed into whether we
+       emit the Google Fonts <link> for CJK. */
+    const cjkSource = `${payload.markdown}\n${payload.chrome.title ?? ""}`;
     const mathPresent = hasMath(payload.markdown);
+    const cjkPresent = hasCJK(cjkSource);
 
     /* Markdown processing and browser launch are independent — run them in
        parallel so the slower one sets the floor. On a warm lambda this saves
@@ -303,6 +309,7 @@ export async function POST(request: Request) {
       chrome: payload.chrome,
       pageSize: payload.pageSize,
       hasMath: mathPresent,
+      hasCJK: cjkPresent,
     });
 
     page = await browser.newPage();

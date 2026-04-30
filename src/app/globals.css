@@ -7,17 +7,20 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Product UI — Hanken Grotesk (neutral grotesque, Linear/Arc-adjacent). PDF presets inherit. */
-  --font-sans: var(--font-hanken-grotesk), "Söhne", "SF Pro Text", system-ui, sans-serif;
+  /* Product UI — Hanken Grotesk (neutral grotesque, Linear/Arc-adjacent). PDF presets inherit.
+     CJK families ("Noto Sans SC/TC/JP/KR") sit between the Latin font and the
+     Latin system fallbacks so Han/kana/Hangul characters resolve correctly
+     glyph-by-glyph. System CJK fonts (PingFang, Hiragino, Microsoft YaHei,
+     Yu Gothic) cover the brief moment before Noto's woff2 chunks load. */
+  --font-sans: var(--font-hanken-grotesk), "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "Noto Sans KR", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Yu Gothic", "Söhne", "SF Pro Text", system-ui, sans-serif;
   --font-mono:
     var(--font-geist-mono), "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
   /* Editorial serif stack — used by Editorial + Academic presets in the
      preview. Source Serif 4 is self-hosted via next/font (see layout.tsx),
      and the PDF lambda inlines the same font as base64 (see lib/pdf-fonts.ts)
      so preview and export render the same glyphs in the same metrics.
-     System-font fallbacks remain as a safety net during the brief moment
-     before next/font's WOFF2 finishes loading. */
-  --font-serif: var(--font-source-serif), "Iowan Old Style", "Charter", "Palatino", Georgia, serif;
+     CJK families and system serif fallbacks layer in for cross-script docs. */
+  --font-serif: var(--font-source-serif), "Noto Serif SC", "Noto Serif TC", "Noto Serif JP", "Noto Serif KR", "PingFang SC", "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", "Iowan Old Style", "Charter", "Palatino", Georgia, serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -422,6 +425,10 @@
     --pdf-heading: var(--font-serif);
     --pdf-body: var(--font-sans);
     --pdf-line: 1.7;
+    /* Source Serif 4 (x-height ~0.50) paired with Noto Serif CJK (~0.55).
+       Forcing a uniform x-height keeps cross-script lines on the same
+       baseline so Chinese paragraphs don't read 10% taller than English. */
+    font-size-adjust: 0.5;
   }
 
   /* Technical — sans throughout, info-dense, blueprint accent. */
@@ -458,6 +465,8 @@
     --pdf-heading: var(--font-serif);
     --pdf-body: var(--font-serif);
     --pdf-line: 1.78;
+    /* Same cross-script x-height normalization as Editorial. */
+    font-size-adjust: 0.5;
   }
 
   /* Cross-fade preset tokens with property transitions — pure CSS. */
