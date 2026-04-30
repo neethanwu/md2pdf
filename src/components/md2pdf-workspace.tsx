@@ -20,6 +20,7 @@ import {
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ShortcutKeys } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -55,6 +56,15 @@ const initialChrome: ChromeState = {
   pageNumbers: true,
   footerNote: "",
 };
+
+function TooltipShortcut({ label, keys }: { label: string; keys: string[] }) {
+  return (
+    <span className="tooltip-shortcut">
+      <span>{label}</span>
+      <ShortcutKeys keys={keys} />
+    </span>
+  );
+}
 
 type RecentFile = { name: string; markdown: string; ts: number };
 const RECENTS_KEY = "md2pdf:recents";
@@ -747,7 +757,9 @@ export function Md2PdfWorkspace() {
                   </Button>
                 }
               />
-              <TooltipContent>Open · {modKey}O</TooltipContent>
+              <TooltipContent>
+                <TooltipShortcut keys={[modKey, "O"]} label="Open" />
+              </TooltipContent>
             </Tooltip>
 
             <SettingsPopover
@@ -811,7 +823,9 @@ export function Md2PdfWorkspace() {
                   </Button>
                 }
               />
-              <TooltipContent>Export · {modKey}E</TooltipContent>
+              <TooltipContent>
+                <TooltipShortcut keys={[modKey, "E"]} label="Export" />
+              </TooltipContent>
             </Tooltip>
 
             <input
@@ -1101,13 +1115,19 @@ function SettingsPopover({
             />
           }
         />
-        <TooltipContent>Settings · {modKey}/</TooltipContent>
+        <TooltipContent>
+          <TooltipShortcut keys={[modKey, "/"]} label="Settings" />
+        </TooltipContent>
       </Tooltip>
       <PopoverContent align="end" sideOffset={8}>
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[13px] font-medium tracking-tight">Document settings</p>
-            <kbd className="cmdk-kbd">{`${modKey}/`}</kbd>
+            <ShortcutKeys
+              className="cmdk-item-shortcut"
+              keyClassName="cmdk-kbd"
+              keys={[modKey, "/"]}
+            />
           </div>
 
           <label className="flex flex-col gap-1.5" htmlFor="filename">

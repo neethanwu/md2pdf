@@ -1581,6 +1581,58 @@
     transition-duration: 0ms;
   }
 
+  .shortcut-keys {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ui-kbd {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 4px;
+    background: color-mix(in oklch, var(--foreground) 6%, transparent);
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+
+  .ui-kbd[data-wide="true"] {
+    min-width: 24px;
+  }
+
+  .tooltip-shortcut {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tooltip-content .shortcut-keys {
+    gap: 2px;
+    transform: translateY(-0.5px);
+  }
+
+  .tooltip-content .ui-kbd {
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3.5px;
+    border-radius: 3.5px;
+    background: oklch(1 0 0 / 10%);
+    color: oklch(1 0 0 / 82%);
+    font-size: 9.5px;
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / 12%);
+  }
+
   /* Verb-prefix on preset tooltips: bright label, then a softer summary. */
   .tooltip-verb {
     font-weight: 600;
@@ -1834,25 +1886,10 @@
   .cmdk-item-shortcut {
     flex: none;
     display: inline-flex;
+    align-items: center;
     gap: 3px;
     color: var(--muted-foreground);
-    font-size: 11px;
     font-variant-numeric: tabular-nums;
-  }
-
-  .cmdk-kbd {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    border-radius: 4px;
-    background: color-mix(in oklch, var(--foreground) 6%, transparent);
-    color: var(--muted-foreground);
-    font-family: var(--font-sans);
-    font-size: 10.5px;
-    font-weight: 500;
   }
 
   /* Reset-defaults button — fades in when chrome is dirty. */

@@ -3,6 +3,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { ShortcutKeys } from "@/components/ui/kbd";
 
 export type Command = {
   id: string;
@@ -138,13 +139,11 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
                         )}
                         <span className="cmdk-item-label">{cmd.label}</span>
                         {cmd.shortcut ? (
-                          <span className="cmdk-item-shortcut">
-                            {cmd.shortcut.map((k) => (
-                              <kbd className="cmdk-kbd" key={`${cmd.id}-${k}`}>
-                                {k}
-                              </kbd>
-                            ))}
-                          </span>
+                          <ShortcutKeys
+                            className="cmdk-item-shortcut"
+                            keyClassName="cmdk-kbd"
+                            keys={cmd.shortcut}
+                          />
                         ) : null}
                       </button>
                     );
@@ -210,16 +209,11 @@ export function ShortcutsOverlay({ open, onOpenChange, modKey }: ShortcutsOverla
                   <div className="cmdk-item" key={`${g.label}-${it.description}`}>
                     <span className="cmdk-item-icon" />
                     <span className="cmdk-item-label">{it.description}</span>
-                    <span className="cmdk-item-shortcut">
-                      {it.keys.map((k) => (
-                        <kbd
-                          className="cmdk-kbd"
-                          key={`${g.label}-${it.description}-${k}`}
-                        >
-                          {k}
-                        </kbd>
-                      ))}
-                    </span>
+                    <ShortcutKeys
+                      className="cmdk-item-shortcut"
+                      keyClassName="cmdk-kbd"
+                      keys={it.keys}
+                    />
                   </div>
                 ))}
               </div>
