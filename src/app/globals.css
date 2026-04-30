@@ -12,7 +12,8 @@
      Latin system fallbacks so Han/kana/Hangul characters resolve correctly
      glyph-by-glyph. System CJK fonts (PingFang, Hiragino, Microsoft YaHei,
      Yu Gothic) cover the brief moment before Noto's woff2 chunks load. */
-  --font-sans: var(--font-hanken-grotesk), "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "Noto Sans KR", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Yu Gothic", "Söhne", "SF Pro Text", system-ui, sans-serif;
+  --font-sans:
+    var(--font-hanken-grotesk), "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "Noto Sans KR", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Yu Gothic", "Söhne", "SF Pro Text", system-ui, sans-serif;
   --font-mono:
     var(--font-geist-mono), "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
   /* Editorial serif stack — used by Editorial + Academic presets in the
@@ -20,7 +21,8 @@
      and the PDF lambda inlines the same font as base64 (see lib/pdf-fonts.ts)
      so preview and export render the same glyphs in the same metrics.
      CJK families and system serif fallbacks layer in for cross-script docs. */
-  --font-serif: var(--font-source-serif), "Noto Serif SC", "Noto Serif TC", "Noto Serif JP", "Noto Serif KR", "PingFang SC", "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", "Iowan Old Style", "Charter", "Palatino", Georgia, serif;
+  --font-serif:
+    var(--font-source-serif), "Noto Serif SC", "Noto Serif TC", "Noto Serif JP", "Noto Serif KR", "PingFang SC", "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", "Iowan Old Style", "Charter", "Palatino", Georgia, serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -279,6 +281,7 @@
   */
   .paper[data-size="Letter"] {
     --page-h: 984px; /* 760px * (11 / 8.5) */
+    --preview-pt: 1.24183px; /* 760px / 8.5in / 72pt */
     --margin-top: 76px;
     --margin-bottom: 76px;
     --margin-x: 85px;
@@ -294,6 +297,7 @@
 
   .paper[data-size="A4"] {
     --page-h: 1075px; /* 760px * (297 / 210) */
+    --preview-pt: 1.27672px; /* 760px / 210mm * 25.4mm / 72pt */
     --margin-top: 80px;
     --margin-bottom: 80px;
     --margin-x: 80px;
@@ -400,7 +404,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    min-height: 32px;
+    height: var(--chrome-top-h, 60px);
     padding: 28px var(--margin-x, 56px) 0;
     color: var(--pdf-muted);
     font-family: var(--pdf-body);
@@ -410,6 +414,7 @@
   }
 
   .document-chrome-bottom {
+    height: var(--chrome-bottom-h, 60px);
     padding: 0 var(--margin-x, 56px) 28px;
   }
 
@@ -462,13 +467,11 @@
     --pdf-mono: var(--font-mono);
     --pdf-line: 1.7;
     font-family: var(--pdf-body);
-    /* Match PDF 11.5pt at the preview's pixel scale: 760px = 8.5in, so
-       1in = 89.41 preview-px and 1pt = 89.41/72 = 1.2418 preview-px.
-       11.5pt × 1.2418 = 14.28px. The previous 14.5px was ~1.5% too large,
-       which compounded with the clip-height mismatch to push atomic blocks
-       (mermaid diagrams, figures) onto the next page in preview when they
-       actually fit on the same page in the export. */
-    font-size: 14.28px;
+    /* PDF typography is specified in pt. The preview paper is always 760px
+       wide, so pt-to-px depends on the active physical page size:
+       Letter: 760px / 8.5in / 72pt, A4: 760px / 210mm * 25.4mm / 72pt.
+       Keep this page-size-aware or A4 preview grows too compact versus export. */
+    font-size: calc(var(--preview-pt, 1.24183px) * 11.5);
     line-height: var(--pdf-line);
   }
 
@@ -564,17 +567,18 @@
      at true paper dimensions and must paginate identically across viewports
      and exactly match the exported PDF. */
   .md-preview h1 {
-    margin: 0 0 24px;
-    font-size: 2.4rem;
+    margin: 0 0 calc(var(--preview-pt, 1.24183px) * 22);
+    font-size: calc(var(--preview-pt, 1.24183px) * 30);
     font-weight: 650;
     letter-spacing: -0.02em;
   }
 
   .md-preview h2 {
-    margin: 44px 0 16px;
-    padding-top: 16px;
+    margin: calc(var(--preview-pt, 1.24183px) * 32) 0
+      calc(var(--preview-pt, 1.24183px) * 10);
+    padding-top: calc(var(--preview-pt, 1.24183px) * 14);
     border-top: 1px solid var(--pdf-rule);
-    font-size: 1.32rem;
+    font-size: calc(var(--preview-pt, 1.24183px) * 17);
     font-weight: 650;
     letter-spacing: -0.005em;
   }
@@ -588,14 +592,16 @@
   }
 
   .md-preview h3 {
-    margin: 28px 0 8px;
-    font-size: 1.05rem;
+    margin: calc(var(--preview-pt, 1.24183px) * 22) 0
+      calc(var(--preview-pt, 1.24183px) * 6);
+    font-size: calc(var(--preview-pt, 1.24183px) * 13);
     font-weight: 700;
   }
 
   .md-preview h4 {
-    margin: 20px 0 6px;
-    font-size: 0.95rem;
+    margin: calc(var(--preview-pt, 1.24183px) * 16) 0
+      calc(var(--preview-pt, 1.24183px) * 5);
+    font-size: calc(var(--preview-pt, 1.24183px) * 11);
     font-weight: 700;
     color: var(--pdf-muted);
   }
@@ -609,7 +615,7 @@
   .md-preview blockquote,
   .md-preview table,
   .md-preview pre {
-    margin: 0 0 14px;
+    margin: 0 0 calc(var(--preview-pt, 1.24183px) * 12);
   }
 
   .md-preview p,
@@ -619,7 +625,7 @@
 
   .md-preview ul,
   .md-preview ol {
-    padding-left: 26px;
+    padding-left: calc(var(--preview-pt, 1.24183px) * 20);
   }
 
   .md-preview ul {
@@ -656,7 +662,7 @@
   }
 
   .md-preview li + li {
-    margin-top: 5px;
+    margin-top: calc(var(--preview-pt, 1.24183px) * 3);
   }
 
   .md-preview li > p {
@@ -682,7 +688,9 @@
   }
 
   .md-preview blockquote {
-    padding: 14px 20px;
+    margin: calc(var(--preview-pt, 1.24183px) * 16) 0;
+    padding: calc(var(--preview-pt, 1.24183px) * 9)
+      calc(var(--preview-pt, 1.24183px) * 14);
     border-left: 2px solid var(--pdf-accent);
     background: color-mix(in oklch, var(--pdf-accent-soft) 60%, transparent);
     color: var(--pdf-muted);
@@ -707,21 +715,22 @@
     border-radius: 6px;
     background: oklch(0.18 0.018 250);
     color: oklch(0.95 0.008 250);
-    padding: 14px 16px;
+    padding: calc(var(--preview-pt, 1.24183px) * 12)
+      calc(var(--preview-pt, 1.24183px) * 14);
   }
 
   .md-preview pre code {
     background: transparent;
     color: inherit;
     padding: 0;
-    font-size: 0.82rem;
+    font-size: calc(var(--preview-pt, 1.24183px) * 9.5);
     line-height: 1.62;
   }
 
   .md-preview table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9em;
+    font-size: calc(var(--preview-pt, 1.24183px) * 10.2);
   }
 
   .md-preview th {
@@ -733,7 +742,8 @@
   .md-preview th,
   .md-preview td {
     border-bottom: 1px solid var(--pdf-rule);
-    padding: 9px 12px 9px 0;
+    padding: calc(var(--preview-pt, 1.24183px) * 7) calc(var(--preview-pt, 1.24183px) * 8)
+      calc(var(--preview-pt, 1.24183px) * 7) 0;
     vertical-align: top;
   }
 
@@ -773,7 +783,7 @@
   /* Figures — atomic units. Center the image, italicize the caption, keep
      the pair page-break-safe via the pagination's keep-together selector. */
   .md-preview figure.md-image-figure {
-    margin: 22px auto;
+    margin: calc(var(--preview-pt, 1.24183px) * 18) auto;
     padding: 0;
     text-align: center;
     max-width: 100%;
@@ -784,10 +794,10 @@
   }
 
   .md-preview figure.md-image-figure figcaption {
-    font-size: 0.82em;
+    font-size: calc(var(--preview-pt, 1.24183px) * 9.5);
     color: var(--pdf-muted);
     font-style: italic;
-    margin-top: 8px;
+    margin-top: calc(var(--preview-pt, 1.24183px) * 6);
     line-height: 1.45;
     max-width: 56ch;
     margin-left: auto;
@@ -815,7 +825,7 @@
   }
 
   .md-preview .katex-display {
-    margin: 18px 0;
+    margin: calc(var(--preview-pt, 1.24183px) * 14) 0;
     overflow-x: auto;
     overflow-y: hidden;
   }
@@ -830,7 +840,7 @@
      gets thin top/bottom rules to suggest "figure".
   */
   .md-preview .md-mermaid {
-    margin: 22px auto;
+    margin: calc(var(--preview-pt, 1.24183px) * 18) auto;
     text-align: center;
     max-width: 100%;
     min-height: 80px;
@@ -888,7 +898,8 @@
   .preset-academic figure.md-image-figure {
     border-top: 1px solid var(--pdf-rule);
     border-bottom: 1px solid var(--pdf-rule);
-    padding: 14px 0 12px;
+    padding: calc(var(--preview-pt, 1.24183px) * 12) 0
+      calc(var(--preview-pt, 1.24183px) * 10);
   }
 
   /* —————————————————————————————————————————————————————————————
@@ -918,11 +929,11 @@
   /* Editorial — refined publishing rhythm */
   .preset-editorial h1 {
     font-weight: 600;
-    margin-bottom: 28px;
+    margin-bottom: calc(var(--preview-pt, 1.24183px) * 26);
   }
   .preset-editorial h2 {
-    margin-top: 48px;
-    padding-top: 18px;
+    margin-top: calc(var(--preview-pt, 1.24183px) * 48);
+    padding-top: calc(var(--preview-pt, 1.24183px) * 18);
   }
   .preset-editorial h3 {
     font-style: italic;
@@ -933,7 +944,7 @@
     padding-left: 0;
   }
   .preset-editorial ul > li {
-    padding-left: 18px;
+    padding-left: calc(var(--preview-pt, 1.24183px) * 14);
     position: relative;
   }
   .preset-editorial ul > li::before {
@@ -941,7 +952,7 @@
     position: absolute;
     left: 0;
     top: 0.78em;
-    width: 6px;
+    width: calc(var(--preview-pt, 1.24183px) * 5);
     height: 1px;
     background: var(--pdf-muted);
   }
@@ -951,8 +962,9 @@
   .preset-editorial blockquote {
     background: transparent;
     border-left: 2px solid var(--pdf-accent);
-    padding: 8px 0 8px 24px;
-    margin: 22px 0;
+    padding: calc(var(--preview-pt, 1.24183px) * 6) 0
+      calc(var(--preview-pt, 1.24183px) * 6) calc(var(--preview-pt, 1.24183px) * 18);
+    margin: calc(var(--preview-pt, 1.24183px) * 18) 0;
     border-radius: 0;
     font-style: italic;
     color: var(--pdf-ink);
@@ -964,7 +976,7 @@
     font-weight: 600;
     color: var(--pdf-muted);
     border-bottom: 1px solid var(--pdf-ink);
-    padding-bottom: 8px;
+    padding-bottom: calc(var(--preview-pt, 1.24183px) * 6);
   }
 
   /* Technical — documentation-grade, blueprint accent, info-dense */
@@ -1202,21 +1214,20 @@
     font-weight: 600;
     text-align: center;
     letter-spacing: 0;
-    margin-bottom: 32px;
   }
   .preset-academic h2 {
     border-top: 0;
     text-align: center;
     font-style: italic;
     font-weight: 600;
-    margin: 36px 0 14px;
+    margin: calc(var(--preview-pt, 1.24183px) * 28) 0
+      calc(var(--preview-pt, 1.24183px) * 10);
     padding-top: 0;
-    font-size: 1.18rem;
+    font-size: calc(var(--preview-pt, 1.24183px) * 14);
   }
   .preset-academic h3 {
-    font-size: 1.02rem;
+    font-size: calc(var(--preview-pt, 1.24183px) * 12.5);
     font-weight: 700;
-    margin: 22px 0 6px;
   }
   .preset-academic p + p {
     text-indent: 1.4em;
@@ -1226,8 +1237,8 @@
     border-left: 0;
     border-top: 1px solid var(--pdf-rule);
     border-bottom: 1px solid var(--pdf-rule);
-    padding: 18px 32px;
-    margin: 22px 0;
+    padding: calc(var(--preview-pt, 1.24183px) * 14)
+      calc(var(--preview-pt, 1.24183px) * 22);
     background: transparent;
     border-radius: 0;
     text-align: justify;
@@ -1235,26 +1246,24 @@
   }
   .preset-academic ul,
   .preset-academic ol {
-    padding-left: 28px;
+    padding-left: calc(var(--preview-pt, 1.24183px) * 20);
   }
   .preset-academic li + li {
-    margin-top: 3px;
+    margin-top: calc(var(--preview-pt, 1.24183px) * 3);
   }
   .preset-academic hr {
     height: 0;
     border: 0;
-    margin: 32px auto;
-    width: 60px;
+    margin: calc(var(--preview-pt, 1.24183px) * 24) auto;
+    width: calc(var(--preview-pt, 1.24183px) * 50);
     border-top: 1px solid var(--pdf-rule);
     text-align: center;
-  }
-  .preset-academic table {
-    font-size: 0.92em;
   }
   .preset-academic table th {
     border-top: 2px solid var(--pdf-ink);
     border-bottom: 1px solid var(--pdf-ink);
-    padding: 8px 12px 8px 0;
+    padding: calc(var(--preview-pt, 1.24183px) * 7)
+      calc(var(--preview-pt, 1.24183px) * 10) calc(var(--preview-pt, 1.24183px) * 7) 0;
   }
   .preset-academic table tr:last-child td {
     border-bottom: 2px solid var(--pdf-ink);

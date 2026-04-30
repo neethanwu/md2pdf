@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import chromium from "@sparticuz/chromium";
 import type { Browser } from "puppeteer-core";
 import puppeteer from "puppeteer-core";
@@ -21,6 +23,24 @@ export const maxDuration = 60;
    keeps the PDF route honest about timeouts and memory while giving rich
    markdown room to breathe. */
 const MAX_MARKDOWN_BYTES = 4_000_000;
+const mermaidBrowserBundlePath = join(
+  process.cwd(),
+  "node_modules",
+  "mermaid",
+  "dist",
+  "mermaid.min.js",
+);
+
+let mermaidBrowserScriptPromise: Promise<string> | null = null;
+
+function hasMermaid(markdown: string) {
+  return /```mermaid(?:\s|\n)/.test(markdown);
+}
+
+function getMermaidBrowserScript() {
+  mermaidBrowserScriptPromise ??= readFile(mermaidBrowserBundlePath, "utf8");
+  return mermaidBrowserScriptPromise;
+}
 
 const localChromePaths = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -126,7 +146,7 @@ function parseRequest(body: unknown): PdfRequest {
 }
 
 /* Run inside the Puppeteer page after content + fonts settle. Mermaid is
-   loaded from CDN once per page lifetime, then each ```mermaid block is
+   injected from the local npm bundle only when needed, then each ```mermaid block is
    replaced with the rendered SVG. Theme variables come from the document's
    active preset CSS vars so diagrams take the preset's ink. Images are
    awaited (and broken ones replaced with a calm in-flow fallback) so the
@@ -162,21 +182,17 @@ const POST_RENDER_SCRIPT = `
   const mermaidBlocks = Array.from(document.querySelectorAll("pre > code.language-mermaid"));
   if (mermaidBlocks.length > 0) {
     if (!window.mermaid) {
-      await new Promise((resolve, reject) => {
-        const s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
-        s.crossOrigin = "anonymous";
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
+      throw new Error("Mermaid renderer was not loaded.");
     }
     const mermaid = window.mermaid;
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict",
       theme: "base",
+      htmlLabels: false,
       fontFamily: "inherit",
+      // Root-level htmlLabels: false is required in Mermaid 11; per-diagram
+      // htmlLabels is deprecated and loses to the root default.
       // SVG-text labels measure against the actual rendered font, so shapes
       // size correctly even when the web font finishes loading mid-render.
       flowchart: { htmlLabels: false },
@@ -238,9 +254,9 @@ const POST_RENDER_SCRIPT = `
     document.querySelectorAll('body > [id^="dmermaid-"], body > [id^="md2pdf-mermaid-"]').forEach((node) => node.remove());
   }
 
-  // Images — by the time this script runs, networkidle0 has already settled,
-  // so most images are already complete (either loaded or failed). Handle
-  // both synchronously; only register listeners for in-flight images.
+  // Images — after domcontentloaded, local/data images are usually already
+  // complete. Handle those synchronously; only register listeners for
+  // in-flight images.
   const swapBroken = (img) => {
     const span = document.createElement("span");
     span.className = "md-image-broken";
@@ -293,14 +309,18 @@ export async function POST(request: Request) {
     const cjkSource = `${payload.markdown}\n${payload.chrome.title ?? ""}`;
     const mathPresent = hasMath(payload.markdown);
     const cjkPresent = hasCJK(cjkSource);
+    const mermaidPresent = hasMermaid(payload.markdown);
 
     /* Markdown processing and browser launch are independent — run them in
        parallel so the slower one sets the floor. On a warm lambda this saves
        ~50ms (markdown is fast); on cold start the launch dominates and the
-       overlap helps less, but it never hurts. */
-    const [html, browser] = await Promise.all([
+       overlap helps less, but it never hurts. Mermaid's browser bundle is
+       read from local disk only when the document contains diagrams, avoiding
+       a multi-second CDN wait inside Puppeteer. */
+    const [html, browser, mermaidScript] = await Promise.all([
       markdownToHtml(payload.markdown),
       getBrowser(),
+      mermaidPresent ? getMermaidBrowserScript() : Promise.resolve(null),
     ]);
     const documentHtml = buildPdfHtml({
       html,
@@ -319,6 +339,9 @@ export async function POST(request: Request) {
        still awaits document.fonts.ready, mermaid render, and image loads —
        those are the things that actually need to settle before PDF capture. */
     await page.setContent(documentHtml, { waitUntil: "domcontentloaded" });
+    if (mermaidScript) {
+      await page.addScriptTag({ content: mermaidScript });
+    }
     await page.evaluate(POST_RENDER_SCRIPT);
     await page.emulateMediaType("print");
 

@@ -519,11 +519,11 @@ function loadMermaid(): Promise<MermaidApi> {
       startOnLoad: false,
       securityLevel: "strict",
       theme: "base",
+      htmlLabels: false,
       fontFamily: "inherit",
-      // htmlLabels: false makes mermaid render labels as native SVG <text>
-      // and measure their bounds against the actual rendered font. With
-      // htmlLabels: true (the default), shapes are sized before the web
-      // font finishes loading so longer words like "Preset" get clipped.
+      // Root-level htmlLabels: false makes Mermaid 11 render labels as
+      // native SVG <text>. Diagram-specific htmlLabels is deprecated and
+      // loses to the root default, which reintroduced HTML-label glitches.
       flowchart: { htmlLabels: false },
       sequence: { htmlLabels: false },
       class: { htmlLabels: false },
@@ -598,6 +598,7 @@ function MermaidBlock({ source, preset }: { source: string; preset: PdfPreset })
             startOnLoad: false,
             securityLevel: "strict",
             theme: "base",
+            htmlLabels: false,
             fontFamily: "inherit",
             flowchart: { htmlLabels: false },
             sequence: { htmlLabels: false },

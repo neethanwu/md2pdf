@@ -47,6 +47,9 @@ const nextConfig: NextConfig = {
          to inline math typesetting only when the markdown contains math. */
       "./node_modules/katex/dist/katex.min.css",
       "./node_modules/katex/dist/fonts/*.woff2",
+      /* The PDF route injects Mermaid from the local browser bundle instead
+         of loading it from a CDN inside Puppeteer for every diagram export. */
+      "./node_modules/mermaid/dist/mermaid.min.js",
     ],
   },
 };
