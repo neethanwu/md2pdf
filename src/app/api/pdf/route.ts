@@ -12,6 +12,7 @@ import {
 } from "@/lib/document";
 import { markdownToHtml } from "@/lib/markdown";
 import { getCjkScripts } from "@/lib/pdf-cjk";
+import { hasEmoji } from "@/lib/pdf-emoji";
 import { hasMath } from "@/lib/pdf-katex";
 import { buildPdfHtml } from "@/lib/pdf-template";
 
@@ -271,6 +272,42 @@ const POST_RENDER_SCRIPT = `
 
   await waitForCjkFonts();
 
+  const waitForEmojiFonts = async () => {
+    const emojiLinks = Array.from(
+      document.querySelectorAll('link[data-md2pdf-emoji-fonts]'),
+    );
+    if (emojiLinks.length === 0 || !document.fonts) return;
+
+    await withTimeout(
+      Promise.all(emojiLinks.map(waitForStylesheet)),
+      12000,
+      "Emoji font stylesheet timed out.",
+    );
+
+    /* Probe with the actual emoji used in the document so unicode-range
+       subsetting fetches the chunks we need, then verify Noto Color Emoji
+       is registered for those codepoints. Without an explicit load() the
+       lambda would race past document.fonts.ready before the chunk request
+       even fired. */
+    const text = document.body.innerText || "";
+    const matches = text.match(/\\p{Extended_Pictographic}/gu) || [];
+    const probe = matches.length > 0
+      ? Array.from(new Set(matches)).slice(0, 80).join("")
+      : "\u{1F600}";
+
+    await withTimeout(
+      document.fonts.load('400 16px "Noto Color Emoji"', probe).catch(() => []),
+      12000,
+      "Emoji fonts timed out.",
+    );
+
+    if (document.fonts.ready) {
+      await withTimeout(document.fonts.ready, 12000, "Emoji fonts timed out.");
+    }
+  };
+
+  await waitForEmojiFonts();
+
   // Mermaid — only load if there's at least one block.
   const mermaidBlocks = Array.from(document.querySelectorAll("pre > code.language-mermaid"));
   if (mermaidBlocks.length > 0) {
@@ -402,6 +439,7 @@ export async function POST(request: Request) {
     const cjkSource = `${payload.markdown}\n${payload.chrome.title ?? ""}`;
     const mathPresent = hasMath(payload.markdown);
     const cjkScripts = getCjkScripts(cjkSource);
+    const emojiPresent = hasEmoji(cjkSource);
     const mermaidPresent = hasMermaid(payload.markdown);
 
     /* Markdown processing and browser launch are independent — run them in
@@ -423,6 +461,7 @@ export async function POST(request: Request) {
       pageSize: payload.pageSize,
       hasMath: mathPresent,
       cjkScripts,
+      hasEmoji: emojiPresent,
     });
 
     page = await browser.newPage();

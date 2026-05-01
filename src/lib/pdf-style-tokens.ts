@@ -1,5 +1,6 @@
 import type { PdfPreset } from "@/lib/document";
 import { CJK_MONO_STACK, CJK_SANS_STACK, CJK_SERIF_STACK } from "@/lib/pdf-cjk";
+import { EMOJI_FONT_FAMILY } from "@/lib/pdf-emoji";
 
 type FontKind = "sans" | "serif";
 
@@ -187,11 +188,17 @@ const PREVIEW_FONT_STACKS = {
   mono: "var(--font-mono)",
 } as const;
 
+/* Noto Color Emoji sits at the tail of every stack so per-character font
+   fallback resolves Latin → CJK → text-shaped fallbacks → emoji. The lambda
+   ships no system emoji font, so without this declared family every
+   pictographic codepoint would render as tofu. The CDN stylesheet that
+   defines @font-face for "Noto Color Emoji" is gated by hasEmoji() in the
+   template — Latin-only docs never load it. */
 const PDF_FONT_STACKS = {
-  sans: `"Hanken Grotesk Variable", ${CJK_SANS_STACK}, "Avenir Next", "SF Pro Text", system-ui, sans-serif`,
-  technicalSans: `"Hanken Grotesk Variable", ${CJK_SANS_STACK}, "Aptos", "Segoe UI", system-ui, sans-serif`,
-  serif: `"Source Serif 4 Variable", ${CJK_SERIF_STACK}, "Iowan Old Style", "Charter", Georgia, serif`,
-  mono: `"SFMono-Regular", "JetBrains Mono", Consolas, ${CJK_MONO_STACK}, monospace`,
+  sans: `"Hanken Grotesk Variable", ${CJK_SANS_STACK}, "Avenir Next", "SF Pro Text", system-ui, ${EMOJI_FONT_FAMILY}, sans-serif`,
+  technicalSans: `"Hanken Grotesk Variable", ${CJK_SANS_STACK}, "Aptos", "Segoe UI", system-ui, ${EMOJI_FONT_FAMILY}, sans-serif`,
+  serif: `"Source Serif 4 Variable", ${CJK_SERIF_STACK}, "Iowan Old Style", "Charter", Georgia, ${EMOJI_FONT_FAMILY}, serif`,
+  mono: `"SFMono-Regular", "JetBrains Mono", Consolas, ${CJK_MONO_STACK}, ${EMOJI_FONT_FAMILY}, monospace`,
 } as const;
 
 function spacingForPreset(preset: PdfPreset) {

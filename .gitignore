@@ -44,3 +44,6 @@ next-env.d.ts
 docs/
 .impeccable.md
 chinese-export-test.md
+
+# local agent state
+.claude/

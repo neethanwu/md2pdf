@@ -38,6 +38,7 @@ import {
   sampleMarkdown,
 } from "@/lib/document";
 import { CJK_FONTS_HREF, hasCJK } from "@/lib/pdf-cjk";
+import { EMOJI_FONTS_HREF, hasEmoji } from "@/lib/pdf-emoji";
 
 type ChromeState = {
   header: boolean;
@@ -217,6 +218,15 @@ export function Md2PdfWorkspace() {
      this lazy load lands faster when it does fire. */
   const needsCjkFonts = useMemo(
     () => hasCJK(`${markdown}\n${chrome.title}`),
+    [markdown, chrome.title],
+  );
+  /* Emoji loads on the same lazy pattern as CJK — Latin-only docs skip the
+     CDN fetch entirely. The lambda has no system emoji font so unloaded
+     pictographs ship as tofu in the PDF; the preview falls back to system
+     emoji on macOS/Windows but matches the lambda once Noto Color Emoji
+     resolves, keeping the on-screen and exported glyphs identical. */
+  const needsEmojiFonts = useMemo(
+    () => hasEmoji(`${markdown}\n${chrome.title}`),
     [markdown, chrome.title],
   );
   const activePreset = getPreset(preset);
@@ -683,6 +693,7 @@ export function Md2PdfWorkspace() {
           never pay the CSS fetch. Browser caches the response after first
           load, so toggling content in/out of CJK doesn't refetch. */}
       {needsCjkFonts ? <link rel="stylesheet" href={CJK_FONTS_HREF} /> : null}
+      {needsEmojiFonts ? <link rel="stylesheet" href={EMOJI_FONTS_HREF} /> : null}
       <main className="flex h-dvh flex-col bg-background text-foreground">
         {/* ———————————————————— Top bar — sticky on every viewport.
             Mobile is upgraded to a three-column grid in CSS so the view

@@ -1,6 +1,7 @@
 import type { DocumentChrome, PageSize, PdfPreset } from "@/lib/document";
 import { escapeHtml } from "@/lib/markdown";
 import { type CjkScript, getCjkFontsLink } from "@/lib/pdf-cjk";
+import { getEmojiFontsLink } from "@/lib/pdf-emoji";
 import { getInlinedFontFaceCss } from "@/lib/pdf-fonts";
 import { getInlinedKatexCss } from "@/lib/pdf-katex";
 import {
@@ -17,6 +18,7 @@ type TemplateOptions = {
   pageSize: PageSize;
   hasMath: boolean;
   cjkScripts: CjkScript[];
+  hasEmoji: boolean;
 };
 
 /* Escape a string for use as a CSS string literal (inside `content: "..."`). */
@@ -40,6 +42,7 @@ export function buildPdfHtml({
   pageSize,
   hasMath,
   cjkScripts,
+  hasEmoji,
 }: TemplateOptions) {
   /* Chrome content via CSS @page margin boxes — Chromium renders these at the
      document's actual scale with full CSS support, unlike puppeteer's headerTemplate
@@ -153,6 +156,12 @@ export function buildPdfHtml({
     serif: isSerifPreset(preset),
   });
 
+  /* Emoji font is also CDN-loaded — Noto Color Emoji is ~4MB across nine
+     unicode-range chunks, and Latin-only docs would pay that cost for nothing.
+     Conditional gates keeps emoji-free exports fully self-contained. See
+     lib/pdf-emoji.ts. */
+  const emojiLink = getEmojiFontsLink(hasEmoji);
+
   /* Serif presets pair Source Serif 4 (x-height ratio ~0.50) with Noto Serif
      CJK families (~0.55 by default). Without normalization, Chinese paragraphs
      read ~10% taller than the surrounding English. font-size-adjust forces
@@ -168,6 +177,7 @@ export function buildPdfHtml({
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
   ${cjkLink}
+  ${emojiLink}
   <style>
     /* Fonts inlined as base64 data URIs — see lib/pdf-fonts.ts. Identical
        bytes between browser preview (next/font/google self-hosted) and PDF
